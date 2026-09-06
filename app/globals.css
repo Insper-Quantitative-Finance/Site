@@ -305,13 +305,25 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: radial-gradient(
-    38% 38% at calc(var(--mx) * 100%) calc(var(--my) * 100%),
-    rgba(169, 194, 209, 0.20) 0%,
-    rgba(120, 90, 190, 0.10) 38%,
-    rgba(169, 194, 209, 0) 70%
-  );
-  filter: blur(40px);
+  /* Mesmas cores do mesh: vermelho e azul-marinho, não o azul-claro da marca.
+     Os dois lobos ficam deslocados um do outro (o vermelho adiantado, o
+     marinho atrasado), então ao mover o mouse eles se separam e se cruzam
+     em vez de andarem como uma bolha só.
+     As paradas terminam em alpha 0 da MESMA cor — com `transparent` o
+     navegador interpola por preto e suja a borda de cinza. */
+  background:
+    radial-gradient(
+      30% 32% at calc(var(--mx) * 100% + 4%) calc(var(--my) * 100% - 3%),
+      rgba(206, 24, 28, 0.30) 0%,
+      rgba(206, 24, 28, 0) 68%
+    ),
+    radial-gradient(
+      40% 42% at calc(var(--mx) * 100% - 5%) calc(var(--my) * 100% + 4%),
+      rgba(16, 34, 96, 0.75) 0%,
+      rgba(12, 26, 78, 0.28) 42%,
+      rgba(12, 26, 78, 0) 72%
+    );
+  filter: blur(44px);
   transition: opacity 600ms ease;
 }
 .mesh-interativa .mesh-cursor { opacity: 1; }
