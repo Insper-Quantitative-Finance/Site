@@ -4,25 +4,38 @@ O site é um Next.js 14 (App Router). Front e back são o mesmo processo: as
 páginas, o `middleware.js` de sessão e as rotas em `app/api` sobem juntos.
 Os dados e a autenticação ficam no Supabase.
 
-## Onde hospedar
+A hospedagem é a **Vercel**, no plano Hobby (gratuito).
 
-O repositório é **privado e pertence a uma organização**. Isso elimina o plano
-gratuito da Vercel, que não deploya repositório privado de organização — a saída
-oficial deles é tornar o repo público ou assinar o Pro. Por isso o alvo é o
-**Render**, e o `render.yaml` na raiz já descreve o serviço inteiro.
+## Por que este repositório é público
 
-## Passo a passo (Render)
+O plano gratuito da Vercel não faz deploy de repositório **privado** que
+pertence a uma organização do GitHub — a saída oficial é tornar o repositório
+público ou assinar o plano Pro. Como o Render cobra pela instância que não
+hiberna, a escolha foi deixar o código aberto.
 
-1. **Conectar a conta.** Em <https://dashboard.render.com>, entre com o GitHub e
-   autorize o acesso à organização. O GitHub pede aprovação de um owner da org.
+Isso muda uma regra de trabalho: **nada de segredo neste repositório, nunca.**
+O `.gitignore` já barra `.env` e `.env.local`, e é assim que tem que continuar.
+O que está público aqui é o código, o `supabase/schema.sql` e as migrações —
+estrutura de tabelas, nenhuma credencial. As chaves vivem só no painel da
+Vercel e no do Supabase.
 
-2. **Criar pelo blueprint.** New → **Blueprint** → selecione este repositório.
-   O Render lê o `render.yaml` e já configura Node 22, o build, o start, o
-   health check em `/` e o auto-deploy a cada push na `main`.
+Vale reforçar: a chave `service_role` do Supabase ignora todo o RLS. Se ela
+vazar para um commit, alguém com o link do repositório tem acesso irrestrito ao
+banco. Se isso acontecer, não basta remover o commit: é preciso **rotacionar a
+chave** no painel do Supabase.
 
-3. **Preencher as variáveis de ambiente.** O blueprint declara as chaves com
-   `sync: false`: elas existem no serviço, mas o valor é digitado no painel e
-   nunca vai para o git. Os valores são os mesmos do seu `.env.local`:
+## Passo a passo (Vercel)
+
+1. **Importar.** Em <https://vercel.com/new>, entre com o GitHub e escolha este
+   repositório. A Vercel pede autorização do GitHub App na organização; um
+   owner da org aprova.
+
+2. **Configuração do projeto.** Framework detectado automaticamente como
+   Next.js. Build, output e install ficam nos padrões — não há nada para
+   ajustar.
+
+3. **Variáveis de ambiente.** Adicione as seis antes do primeiro deploy, em
+   Settings → Environment Variables. Os valores são os mesmos do `.env.local`:
 
    | Variável | Onde obter |
    |---|---|
@@ -33,8 +46,11 @@ oficial deles é tornar o repo público ou assinar o Pro. Por isso o alvo é o
    | `INSTAGRAM_USER_ID` | só no fluxo de Facebook Login; senão, vazio |
    | `CRON_SECRET` | gere com `openssl rand -hex 32` |
 
-4. **Deploy.** O primeiro build leva alguns minutos. O serviço sobe em
-   `iqf-site.onrender.com`.
+   As três primeiras precisam existir nos três ambientes (Production, Preview e
+   Development); as outras, em Production basta.
+
+4. **Deploy.** A partir daí, todo push na `main` publica sozinho, e todo pull
+   request ganha uma URL de preview.
 
 ## Depois do primeiro deploy
 
@@ -43,22 +59,25 @@ a URL de produção em *Site URL* e em *Redirect URLs*. Sem isso, o login e a
 redefinição de senha continuam redirecionando para `localhost` e quebram para
 todo mundo. É o erro mais comum nesse tipo de deploy.
 
-**Escolher o plano.** O `render.yaml` pede `starter` (US$ 7/mês). No plano
-`free` o serviço hiberna após 15 minutos ociosos, e a primeira visita depois
-disso leva cerca de 30 segundos — ruim para um site institucional, que costuma
-receber visitas esparsas.
+**O cron do Instagram.** O `vercel.json` agenda `/api/instagram/atualizar` para
+rodar diariamente às 9h UTC. A Vercel envia o header
+`Authorization: Bearer $CRON_SECRET` automaticamente, que é o que a rota espera
+— nada mais a configurar. No plano Hobby o limite é **uma execução por dia**;
+se um dia precisar de mais frequência, use um agendador externo mandando o
+mesmo header.
 
-**Agendar a atualização do Instagram.** A rota `POST /api/instagram/atualizar`
-renova o cache de posts e é protegida pelo `CRON_SECRET`. Cron no Render é um
-serviço pago à parte; um agendador externo gratuito batendo na rota com o
-segredo no header resolve igual.
+**Renovar o token do Instagram.** O token da Graph API expira em 60 dias.
+Chamar a rota com `?renovar=1` devolve um token novo, que precisa ser colado
+manualmente em `INSTAGRAM_ACCESS_TOKEN` nas variáveis da Vercel. Vale deixar um
+lembrete no calendário da diretoria — quando ele expira, a seção de eventos
+para de atualizar silenciosamente.
 
 ## Domínio próprio
 
-Settings → Custom Domains no serviço do Render, e um registro CNAME apontando
-para o host `.onrender.com` no DNS do domínio. O certificado TLS é emitido
-automaticamente. Depois de trocar o domínio, **volte no Supabase e atualize as
-URLs de autenticação** — senão o login quebra de novo.
+Settings → Domains no projeto da Vercel, e os registros de DNS que ela indicar.
+O certificado TLS é emitido automaticamente. Depois de apontar o domínio,
+**volte no Supabase e atualize as URLs de autenticação** — senão o login quebra
+de novo.
 
 ## Rodando localmente
 
