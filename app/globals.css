@@ -296,53 +296,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   .photo { aspect-ratio: 4 / 3 !important; }
 }
 
-/* --------------------------------------------------------- mesh e o cursor */
-/* --mx/--my (0 a 1) são publicadas por MeshInterativa.jsx no #top. O centro
-   é o padrão: sem JS, nada se move e o hero fica como sempre foi. */
-#top { --mx: 0.5; --my: 0.5; }
-
-.mesh-cursor {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  /* Mesmas cores do mesh: vermelho e azul-marinho, não o azul-claro da marca.
-     Os dois lobos ficam deslocados um do outro (o vermelho adiantado, o
-     marinho atrasado), então ao mover o mouse eles se separam e se cruzam
-     em vez de andarem como uma bolha só.
-     As paradas terminam em alpha 0 da MESMA cor — com `transparent` o
-     navegador interpola por preto e suja a borda de cinza. */
-  background:
-    radial-gradient(
-      30% 32% at calc(var(--mx) * 100% + 4%) calc(var(--my) * 100% - 3%),
-      rgba(206, 24, 28, 0.30) 0%,
-      rgba(206, 24, 28, 0) 68%
-    ),
-    radial-gradient(
-      40% 42% at calc(var(--mx) * 100% - 5%) calc(var(--my) * 100% + 4%),
-      rgba(16, 34, 96, 0.75) 0%,
-      rgba(12, 26, 78, 0.28) 42%,
-      rgba(12, 26, 78, 0) 72%
-    );
-  filter: blur(44px);
-  transition: opacity 600ms ease;
-}
-.mesh-interativa .mesh-cursor { opacity: 1; }
-
-/* Parallax na camada de baixo. Amplitude pequena de propósito — passando de
-   ~30px o fundo compete com o texto do hero.
-   O scale(1.06) vem do .mesh original e precisa ser repetido aqui: transform
-   é uma propriedade só, e declarar de novo substituiria o zoom, deixando a
-   borda do blur aparecer nos cantos.
-   A .mesh-b fica de fora: ela roda meshOrbit, e animação tem precedência
-   sobre transform declarado — o parallax nela seria ignorado sem aviso. */
-.mesh-interativa .mesh {
-  transform:
-    translate3d(calc((var(--mx) - 0.5) * -26px), calc((var(--my) - 0.5) * -18px), 0)
-    scale(1.06);
-  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
 /* ------------------------------------------------------- tela de carregamento */
 .splash {
   position: fixed;

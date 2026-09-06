@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import MeshInterativa from './MeshInterativa';
 
 // Mesh do hero: vermelho e azul-marinho com o mesmo peso, ocupando lados
 // opostos e se encontrando no centro. O marinho é escuro de verdade
@@ -34,14 +33,9 @@ export default function Hero() {
         borderBottom: '1px solid var(--linha)',
       }}
     >
-      <MeshInterativa />
-
       <div style={{ position: 'absolute', inset: 0, background: 'var(--preto-puro)', overflow: 'hidden' }}>
         <div className="mesh" style={{ position: 'absolute', inset: 0, filter: 'blur(52px)', backgroundColor: 'var(--preto-puro)', backgroundImage: MESH_A }} />
         <div className="mesh-b" style={{ position: 'absolute', inset: 0, filter: 'blur(70px)', backgroundImage: MESH_B }} />
-        {/* Brilho que segue o cursor. Sem a classe .mesh-interativa (touch ou
-            movimento reduzido) fica invisível e não custa nada. */}
-        <div className="mesh-cursor" aria-hidden="true" />
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(52% 48% at 32% 42%, rgba(3,3,4,0.85) 0%, rgba(3,3,4,0.3) 58%, transparent 82%)' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(3,3,4,0.5) 0%, rgba(3,3,4,0) 30%, rgba(5,5,6,0.25) 76%, rgba(5,5,6,0.9) 100%)' }} />
       </div>
