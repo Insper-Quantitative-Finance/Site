@@ -39,15 +39,26 @@ chave** no painel do Supabase.
 
    | Variável | Onde obter |
    |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | mesma tela, chave `anon` |
-   | `SUPABASE_SERVICE_ROLE_KEY` | mesma tela, chave `service_role` |
-   | `INSTAGRAM_ACCESS_TOKEN` | token de longa duração da Graph API |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | mesma tela, chave `sb_publishable_…` |
+   | `SUPABASE_SECRET_KEY` | mesma tela, chave `sb_secret_…` |
+   | `INSTAGRAM_ACCESS_TOKEN` | token de longa duração da Graph API (opcional) |
    | `INSTAGRAM_USER_ID` | só no fluxo de Facebook Login; senão, vazio |
    | `CRON_SECRET` | gere com `openssl rand -hex 32` |
 
+   O Supabase renomeou as chaves: a antiga `anon` virou `publishable` e a
+   `service_role` virou `secret`. O código aceita os dois nomes
+   (`lib/supabase/config.js`), mas use os que o seu painel mostrar.
+
    As três primeiras precisam existir nos três ambientes (Production, Preview e
    Development); as outras, em Production basta.
+
+   **Atenção com as `NEXT_PUBLIC_*`**: elas são inlinadas no build, não lidas em
+   runtime. Defina antes do primeiro deploy — mudar o valor depois exige um
+   novo build para ter efeito.
+
+   As três do Instagram são opcionais: sem elas o site sobe normalmente e a
+   seção de eventos fica sem posts.
 
 4. **Deploy.** A partir daí, todo push na `main` publica sozinho, e todo pull
    request ganha uma URL de preview.
