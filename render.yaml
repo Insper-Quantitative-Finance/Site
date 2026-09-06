@@ -1,0 +1,28 @@
+# Blueprint do Render. Em "New → Blueprint", aponte para este repositório.
+services:
+  - type: web
+    name: iqf-site
+    runtime: node
+    plan: starter          # free também funciona, mas hiberna após 15 min ociosos
+    region: oregon
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Os valores abaixo são preenchidos no painel do Render (Environment),
+      # nunca neste arquivo — ele vai para o git.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_USER_ID
+        sync: false
+      - key: CRON_SECRET
+        sync: false
