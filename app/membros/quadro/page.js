@@ -1,10 +1,18 @@
-import { CARGOS, ehGestao, rotuloCargo } from '@/lib/cargos';
+import { redirect } from 'next/navigation';
+import { CARGOS, ehGestao, podeVerAreaGeral, rotuloCargo } from '@/lib/cargos';
+import { exigirUsuario } from '@/lib/auth';
 import { criarClienteServidor } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Quadro de membros · IQF' };
 
 export default async function Quadro() {
+  // Esta página não chamava exigirUsuario(): dependia só do layout. Agora
+  // precisa do cargo para decidir, e a checagem própria é o que impede o
+  // trainee de chegar aqui pela URL.
+  const usuario = await exigirUsuario();
+  if (!podeVerAreaGeral(usuario.cargo)) redirect('/membros/trainee');
+
   const supabase = criarClienteServidor();
   const { data: membros } = await supabase
     .from('profiles')

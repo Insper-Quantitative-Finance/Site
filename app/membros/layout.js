@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { ehGestao, rotuloCargo } from '@/lib/cargos';
+import { ehGestao, podeVerAreaGeral, rotuloCargo } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import BotaoSair from '@/components/membros/BotaoSair';
 import NavMembros from '@/components/membros/NavMembros';
@@ -45,7 +45,7 @@ export default async function LayoutMembros({ children }) {
         </div>
       </header>
 
-      <NavMembros gestao={gestao} />
+      <NavMembros gestao={gestao} areaGeral={podeVerAreaGeral(usuario.cargo)} />
 
       <main style={{ flex: 1, padding: '48px var(--gutter) 80px' }}>
         <div className="container">{children}</div>

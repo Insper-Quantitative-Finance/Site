@@ -1,4 +1,5 @@
-import { ehGestao } from '@/lib/cargos';
+import { redirect } from 'next/navigation';
+import { ehGestao, podeVerAreaGeral } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteServidor } from '@/lib/supabase/server';
 import GerenciarMateriais from './GerenciarMateriais';
@@ -38,6 +39,10 @@ function Material({ m }) {
 
 export default async function Materiais() {
   const usuario = await exigirUsuario();
+  // O trainee tem os handouts dele em /membros/trainee; a biblioteca geral
+  // não é para ele. Guarda no servidor, não só o link escondido no menu.
+  if (!podeVerAreaGeral(usuario.cargo)) redirect('/membros/trainee');
+
   const gestao = ehGestao(usuario.cargo);
 
   const supabase = criarClienteServidor();

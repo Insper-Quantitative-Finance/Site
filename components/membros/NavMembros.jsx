@@ -6,8 +6,8 @@ import { usePathname } from 'next/navigation';
 const LINKS_BASE = [
   { href: '/membros', label: 'Início' },
   { href: '/membros/trainee', label: 'Trainee' },
-  { href: '/membros/quadro', label: 'Quadro de membros' },
-  { href: '/membros/materiais', label: 'Materiais' },
+  { href: '/membros/quadro', label: 'Quadro de membros', geral: true },
+  { href: '/membros/materiais', label: 'Materiais', geral: true },
   { href: '/membros/conta', label: 'Minha conta' },
 ];
 
@@ -16,9 +16,10 @@ const LINKS_GESTAO = [
   { href: '/membros/gestao/projetos', label: 'Projetos do site' },
 ];
 
-export default function NavMembros({ gestao }) {
+export default function NavMembros({ gestao, areaGeral = true }) {
   const pathname = usePathname();
-  const links = gestao ? [...LINKS_BASE, ...LINKS_GESTAO] : LINKS_BASE;
+  const base = areaGeral ? LINKS_BASE : LINKS_BASE.filter((l) => !l.geral);
+  const links = gestao ? [...base, ...LINKS_GESTAO] : base;
 
   return (
     <nav style={{ borderBottom: '1px solid var(--linha-card)', padding: '0 var(--gutter)' }}>
