@@ -7,7 +7,8 @@ import CampoUpload from '@/components/membros/CampoUpload';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
 import { excluirMaterial, salvarMaterial } from '@/app/membros/gestao/acoes';
 
-const CATEGORIAS = ['Python', 'Estatística', 'Finanças', 'Papers', 'Treinamentos', 'Ferramentas', 'Geral'];
+// 'Trainee' é a categoria que alimenta os handouts em /membros/trainee.
+const CATEGORIAS = ['Trainee', 'Python', 'Estatística', 'Finanças', 'Papers', 'Treinamentos', 'Ferramentas', 'Geral'];
 
 function FormularioMaterial({ material, aoConcluir }) {
   const router = useRouter();

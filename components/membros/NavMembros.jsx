@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const LINKS_BASE = [
   { href: '/membros', label: 'Início' },
+  { href: '/membros/trainee', label: 'Trainee' },
   { href: '/membros/quadro', label: 'Quadro de membros' },
   { href: '/membros/materiais', label: 'Materiais' },
   { href: '/membros/conta', label: 'Minha conta' },

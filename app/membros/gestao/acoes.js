@@ -413,3 +413,68 @@ export async function excluirMaterial(_estadoAnterior, formData) {
   revalidatePath('/membros/materiais');
   return sucesso('Material excluído.');
 }
+
+/* ==================================================================
+   ENTREGAS DO TRAINEE
+   ================================================================== */
+
+export async function salvarEntrega(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const titulo = texto(formData, 'titulo');
+  const dataLimite = texto(formData, 'data_limite');
+
+  if (!titulo) return erro('O título é obrigatório.');
+  if (!dataLimite) return erro('Informe a data de entrega.');
+  // O input type="date" já entrega YYYY-MM-DD, mas o formulário pode ser
+  // enviado por outro caminho; uma data torta viraria erro cru do Postgres.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataLimite)) {
+    return erro('Data inválida. Use o seletor de data.');
+  }
+
+  const dados = {
+    titulo,
+    descricao: texto(formData, 'descricao'),
+    data_limite: dataLimite,
+    url: texto(formData, 'url'),
+    periodo: texto(formData, 'periodo') ?? '',
+    ordem: Number(formData.get('ordem')) || 0,
+    autor_id: ator.id,
+  };
+
+  const id = texto(formData, 'id');
+  const admin = criarClienteAdmin();
+  const { error } = id
+    ? await admin.from('entregas').update(dados).eq('id', id)
+    : await admin.from('entregas').insert(dados);
+
+  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+
+  await registrar(ator, id ? 'editar_entrega' : 'criar_entrega', 'entregas', id, { titulo });
+  revalidatePath('/membros/trainee');
+  return sucesso(id ? 'Entrega atualizada.' : 'Entrega adicionada.');
+}
+
+export async function excluirEntrega(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  if (!id) return erro('Entrega não informada.');
+
+  const { error } = await criarClienteAdmin().from('entregas').delete().eq('id', id);
+  if (error) return erro(`Não foi possível excluir: ${error.message}`);
+
+  await registrar(ator, 'excluir_entrega', 'entregas', id, null);
+  revalidatePath('/membros/trainee');
+  return sucesso('Entrega excluída.');
+}
