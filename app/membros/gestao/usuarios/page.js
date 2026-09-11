@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { CARGOS, ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
+import { emailConfigurado } from '@/lib/email';
+import Convidados from './Convidados';
 import Convites from './Convites';
 import GerenciarUsuarios from './GerenciarUsuarios';
 
@@ -23,6 +25,11 @@ export default async function PaginaUsuarios() {
     .select('*')
     .order('created_at', { ascending: false });
 
+  // Duas naturezas na mesma tabela: com e-mail = convite pessoal de planilha;
+  // sem e-mail = link de turma, que qualquer um com a URL usa.
+  const convidados = (convites ?? []).filter((c) => c.email);
+  const links = (convites ?? []).filter((c) => !c.email);
+
   const ordenados = [...(usuarios ?? [])].sort(
     (a, b) =>
       Number(b.ativo) - Number(a.ativo) ||
@@ -42,7 +49,16 @@ export default async function PaginaUsuarios() {
         </p>
       </div>
 
-      <Convites convites={convites ?? []} />
+      {!emailConfigurado() && (
+        <div className="aviso aviso--erro" style={{ margin: 0 }}>
+          O envio de e-mail não está configurado (falta <code>RESEND_API_KEY</code> no ambiente do servidor). Dá para
+          importar a planilha e gerar os links, mas o disparo vai falhar — use “Copiar link” até configurar.
+        </div>
+      )}
+
+      <Convidados convidados={convidados} />
+
+      <Convites convites={links} />
 
       <GerenciarUsuarios usuarios={ordenados} ator={{ id: ator.id, cargo: ator.cargo }} />
     </div>

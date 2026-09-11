@@ -7,7 +7,7 @@ import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
 import { criarClienteNavegador } from '@/lib/supabase/client';
 import { aceitarConvite } from '@/app/convite/acoes';
 
-export default function FormularioConvite({ token, dominio }) {
+export default function FormularioConvite({ token, dominio, nome, email }) {
   const router = useRouter();
   const [estado, acao] = useFormState(aceitarConvite, null);
   const [entrando, setEntrando] = useState(false);
@@ -68,20 +68,29 @@ export default function FormularioConvite({ token, dominio }) {
 
       <div className="campo">
         <label htmlFor="c-nome">Nome completo</label>
-        <input id="c-nome" name="nome" required autoComplete="name" />
+        <input id="c-nome" name="nome" required autoComplete="name" defaultValue={nome ?? ''} />
       </div>
 
       <div className="campo">
         <label htmlFor="c-email">E-mail</label>
+        {/* Convite pessoal: o e-mail é parte do convite, não uma escolha.
+            readOnly (e não disabled) para o campo continuar sendo enviado. */}
         <input
           id="c-email"
           name="email"
           type="email"
           required
           autoComplete="email"
+          defaultValue={email ?? ''}
+          readOnly={Boolean(email)}
           placeholder={dominio ? `voce@${dominio}` : undefined}
+          style={email ? { opacity: 0.7, cursor: 'not-allowed' } : undefined}
         />
-        {dominio && <div className="ajuda">Este convite aceita apenas e-mails @{dominio}.</div>}
+        {email ? (
+          <div className="ajuda">Este convite é pessoal e vale só para este e-mail.</div>
+        ) : (
+          dominio && <div className="ajuda">Este convite aceita apenas e-mails @{dominio}.</div>
+        )}
       </div>
 
       <div className="campo">

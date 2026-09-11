@@ -2,7 +2,10 @@
 
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario } from '@/lib/cargos';
+import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
+import { emailPermitido, linkConvite, situacaoConvite } from '@/lib/convites';
+import { enviarEmail, montarConvite } from '@/lib/email';
+import { lerConvidados } from '@/lib/planilha';
 import { usuarioOuNulo } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
 
@@ -276,6 +279,217 @@ export async function revogarConvite(_estadoAnterior, formData) {
   await registrar(ator, 'revogar_convite', 'convites', id, null);
   revalidatePath('/membros/gestao/usuarios');
   return sucesso('Convite revogado.');
+}
+
+/* ==================================================================
+   CONVITES PESSOAIS EM LOTE (planilha)
+   ================================================================== */
+
+/**
+ * Lê a planilha e devolve a prévia. NÃO escreve nada.
+ *
+ * Este passo existe para a conferência acontecer antes de qualquer efeito:
+ * criar convite é barato de desfazer, mas e-mail enviado não volta. Aqui a
+ * gestão vê quem já tem conta, quem já foi convidado e que linha está torta.
+ */
+export async function prepararConvidados(_estadoAnterior, formData) {
+  try {
+    await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const linhas = lerConvidados(formData.get('planilha'));
+  if (linhas.length === 0) {
+    return erro('Não encontrei nenhuma linha. Cole a planilha (nome e e-mail) ou escolha um arquivo CSV.');
+  }
+
+  const dominio = texto(formData, 'dominio_email')?.toLowerCase().replace(/^@/, '') ?? null;
+  const emails = linhas.filter((l) => l.email).map((l) => l.email);
+  const admin = criarClienteAdmin();
+
+  // Duas consultas em lote, não uma por linha: uma planilha de 60 pessoas
+  // viraria 120 idas ao banco e estouraria o tempo da action.
+  const [{ data: perfis }, { data: pendentes }] = await Promise.all([
+    admin.from('profiles').select('email, nome, cargo').in('email', emails),
+    admin.from('convites').select('email').in('email', emails).eq('revogado', false),
+  ]);
+
+  const jaTemConta = new Map((perfis ?? []).map((p) => [p.email.toLowerCase(), p]));
+  const jaConvidado = new Set((pendentes ?? []).map((c) => c.email?.toLowerCase()));
+
+  const revisadas = linhas.map((l) => {
+    if (l.erro) return { ...l, situacao: 'erro' };
+    if (!emailPermitido(l.email, dominio)) {
+      return { ...l, situacao: 'erro', erro: `Fora do domínio @${dominio}.` };
+    }
+    const perfil = jaTemConta.get(l.email);
+    if (perfil) {
+      return { ...l, situacao: 'tem-conta', aviso: `Já tem conta (${rotuloCargo(perfil.cargo)}).` };
+    }
+    if (jaConvidado.has(l.email)) {
+      return { ...l, situacao: 'convidado', aviso: 'Já existe um convite pendente para este e-mail.' };
+    }
+    return { ...l, situacao: 'novo' };
+  });
+
+  const conta = (s) => revisadas.filter((l) => l.situacao === s).length;
+
+  return {
+    ok: true,
+    linhas: revisadas,
+    resumo: {
+      novos: conta('novo'),
+      temConta: conta('tem-conta'),
+      convidados: conta('convidado'),
+      erros: conta('erro'),
+    },
+    mensagem: `${revisadas.length} linha(s) lidas. Confira antes de criar os convites.`,
+  };
+}
+
+/**
+ * Cria um convite pessoal por linha aprovada. Ainda NÃO envia e-mail —
+ * enviar é um segundo clique, para a prévia valer de alguma coisa.
+ */
+export async function criarConvitesLote(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const rotulo = texto(formData, 'rotulo');
+  if (!rotulo) return erro('Dê um nome ao lote (ex.: “Trainees 2026.1”).');
+
+  // O cliente manda de volta a prévia aprovada; o servidor não confia nela
+  // como verdade sobre o banco — só como seleção de quem enviar.
+  let selecionadas;
+  try {
+    selecionadas = JSON.parse(formData.get('linhas') ?? '[]');
+  } catch {
+    return erro('Não consegui ler a seleção. Refaça a importação.');
+  }
+  if (!Array.isArray(selecionadas) || selecionadas.length === 0) {
+    return erro('Nenhuma pessoa selecionada.');
+  }
+
+  const dias = Number(formData.get('validade_dias'));
+  const expiraEm = dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : null;
+  const turma = texto(formData, 'turma');
+  const area = texto(formData, 'area');
+
+  const admin = criarClienteAdmin();
+
+  // Recheca no banco, agora: entre a prévia e o clique alguém pode ter
+  // criado a conta (ou você pode ter importado a planilha duas vezes).
+  const emails = selecionadas.map((l) => String(l.email).toLowerCase());
+  const [{ data: perfis }, { data: pendentes }] = await Promise.all([
+    admin.from('profiles').select('email').in('email', emails),
+    admin.from('convites').select('email').in('email', emails).eq('revogado', false),
+  ]);
+  const bloqueados = new Set([
+    ...(perfis ?? []).map((p) => p.email.toLowerCase()),
+    ...(pendentes ?? []).map((c) => c.email?.toLowerCase()),
+  ]);
+
+  const novas = selecionadas.filter((l) => l.email && l.nome && !bloqueados.has(String(l.email).toLowerCase()));
+  const ignoradas = selecionadas.length - novas.length;
+
+  if (novas.length === 0) {
+    return erro('Todas as pessoas selecionadas já têm conta ou convite pendente.');
+  }
+
+  const lote = `${rotulo} · ${new Date().toISOString().slice(0, 10)}`;
+
+  const { data: criados, error } = await admin
+    .from('convites')
+    .insert(
+      novas.map((l) => ({
+        token: randomBytes(32).toString('base64url'),
+        rotulo,
+        cargo: 'trainee',
+        nome: String(l.nome).trim(),
+        email: String(l.email).toLowerCase(),
+        turma,
+        area,
+        lote,
+        usos_max: 1, // convite pessoal: uma conta, e acabou
+        expira_em: expiraEm,
+        criado_por: ator.id,
+      })),
+    )
+    .select('id');
+
+  if (error) return erro(`Não foi possível criar os convites: ${error.message}`);
+
+  await registrar(ator, 'criar_convites_lote', 'convites', null, { rotulo, total: criados.length });
+  revalidatePath('/membros/gestao/usuarios');
+
+  return {
+    ok: true,
+    ids: criados.map((c) => c.id),
+    mensagem:
+      `${criados.length} convite(s) criados` +
+      (ignoradas > 0 ? `; ${ignoradas} ignorado(s) por já ter conta ou convite.` : '.') +
+      ' Agora envie os e-mails.',
+  };
+}
+
+/**
+ * Envia (ou reenvia) o e-mail de um convite.
+ *
+ * É uma action por pessoa de propósito: o botão "enviar todos" chama esta
+ * mesma função em sequência, então reenviar para quem falhou usa exatamente
+ * o caminho já testado, e uma caixa postal inválida não derruba o lote.
+ */
+export async function enviarConvite(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  const origem = texto(formData, 'origem');
+  if (!id) return erro('Convite não informado.');
+  if (!origem) return erro('Não consegui descobrir o endereço do site.');
+
+  const admin = criarClienteAdmin();
+  const { data: convite } = await admin.from('convites').select('*').eq('id', id).maybeSingle();
+
+  if (!convite) return erro('Convite não encontrado.');
+  if (!convite.email) return erro('Este convite é um link de turma, não tem destinatário.');
+
+  const situacao = situacaoConvite(convite);
+  if (situacao.valor !== 'ativo') return erro(`Convite ${situacao.label.toLowerCase()}; não faz sentido enviar.`);
+
+  const { assunto, html, texto: corpo } = montarConvite({
+    nome: convite.nome,
+    rotulo: convite.rotulo,
+    link: linkConvite(origem, convite.token),
+  });
+
+  const resultado = await enviarEmail({ para: convite.email, assunto, html, texto: corpo });
+
+  // O resultado fica gravado: é o que a tabela mostra como "enviado" ou
+  // "falhou", inclusive depois de recarregar a página.
+  await admin
+    .from('convites')
+    .update({
+      enviado_em: resultado.ok ? new Date().toISOString() : convite.enviado_em,
+      erro_envio: resultado.ok ? null : resultado.erro,
+    })
+    .eq('id', id);
+
+  revalidatePath('/membros/gestao/usuarios');
+
+  if (!resultado.ok) return erro(resultado.erro);
+
+  await registrar(ator, 'enviar_convite', 'convites', id, { email: convite.email });
+  return sucesso(`Enviado para ${convite.email}.`);
 }
 
 /* ==================================================================

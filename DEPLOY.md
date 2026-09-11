@@ -34,7 +34,7 @@ chave** no painel do Supabase.
    Next.js. Build, output e install ficam nos padrões — não há nada para
    ajustar.
 
-3. **Variáveis de ambiente.** Adicione as seis antes do primeiro deploy, em
+3. **Variáveis de ambiente.** Adicione-as antes do primeiro deploy, em
    Settings → Environment Variables. Os valores são os mesmos do `.env.local`:
 
    | Variável | Onde obter |
@@ -45,6 +45,8 @@ chave** no painel do Supabase.
    | `INSTAGRAM_ACCESS_TOKEN` | token de longa duração da Graph API (opcional) |
    | `INSTAGRAM_USER_ID` | só no fluxo de Facebook Login; senão, vazio |
    | `CRON_SECRET` | gere com `openssl rand -hex 32` |
+   | `RESEND_API_KEY` | resend.com → API Keys (`re_…`); só para enviar convites |
+   | `EMAIL_REMETENTE` | `IQF <convites@seudominio.com>`, com o domínio verificado no Resend |
 
    O Supabase renomeou as chaves: a antiga `anon` virou `publishable` e a
    `service_role` virou `secret`. O código aceita os dois nomes
@@ -59,6 +61,13 @@ chave** no painel do Supabase.
 
    As três do Instagram são opcionais: sem elas o site sobe normalmente e a
    seção de eventos fica sem posts.
+
+   As duas do Resend também são opcionais, mas sem elas o disparo de convites
+   por e-mail falha (a tela de usuários avisa). Enquanto não estiverem
+   configuradas, dá para importar a planilha e copiar os links pessoais à mão.
+   Sem verificar um domínio no Resend, a API só aceita `onboarding@resend.dev`
+   como remetente e só entrega para o e-mail dono da conta — serve para testar,
+   não para convidar a turma.
 
 4. **Deploy.** A partir daí, todo push na `main` publica sozinho, e todo pull
    request ganha uma URL de preview.

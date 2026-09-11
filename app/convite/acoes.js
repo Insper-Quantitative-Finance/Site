@@ -54,6 +54,12 @@ export async function aceitarConvite(_estadoAnterior, formData) {
   const situacao = situacaoConvite(convite);
   if (situacao.valor !== 'ativo') return erro(MOTIVOS[situacao.valor]);
 
+  // Convite pessoal: o token vale para uma caixa postal só. Sem isto, um
+  // link repassado no grupo da turma criaria conta para quem não foi chamado.
+  if (convite.email && convite.email.toLowerCase() !== email) {
+    return erro('Este convite é pessoal e foi emitido para outro e-mail. Use o endereço que recebeu o convite.');
+  }
+
   if (!emailPermitido(email, convite.dominio_email)) {
     return erro(`Este convite aceita apenas e-mails @${convite.dominio_email}.`);
   }
