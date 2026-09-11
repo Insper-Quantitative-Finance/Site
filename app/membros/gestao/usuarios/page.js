@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { CARGOS, ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
-import { criarClienteServidor } from '@/lib/supabase/server';
+import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
+import Convites from './Convites';
 import GerenciarUsuarios from './GerenciarUsuarios';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,13 @@ export default async function PaginaUsuarios() {
 
   const supabase = criarClienteServidor();
   const { data: usuarios } = await supabase.from('profiles').select('*').order('nome');
+
+  // Convites exigem o client admin: a tabela é invisível para RLS, porque o
+  // token nela é o que dá acesso à criação de contas.
+  const { data: convites } = await criarClienteAdmin()
+    .from('convites')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   const ordenados = [...(usuarios ?? [])].sort(
     (a, b) =>
@@ -33,6 +41,8 @@ export default async function PaginaUsuarios() {
           redefinição.
         </p>
       </div>
+
+      <Convites convites={convites ?? []} />
 
       <GerenciarUsuarios usuarios={ordenados} ator={{ id: ator.id, cargo: ator.cargo }} />
     </div>

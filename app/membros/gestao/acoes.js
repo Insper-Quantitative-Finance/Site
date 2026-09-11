@@ -1,5 +1,6 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario } from '@/lib/cargos';
 import { usuarioOuNulo } from '@/lib/auth';
@@ -193,6 +194,88 @@ export async function enviarRedefinicaoSenha(_estadoAnterior, formData) {
 
   await registrar(ator, 'enviar_redefinicao', 'profiles', null, { email });
   return sucesso(`Link de redefinição enviado para ${email}.`);
+}
+
+/* ==================================================================
+   CONVITES DE TRAINEE
+   ================================================================== */
+
+/**
+ * Gera um link de cadastro para trainees.
+ *
+ * Não recebe cargo: o convite cria trainee e só trainee — o banco tem um
+ * CHECK que recusa qualquer outro valor, e a action pública que consome o
+ * token nem lê cargo do formulário. Assim um link vazado no WhatsApp da
+ * turma, no pior caso, cria um trainee a mais — nunca um diretor.
+ */
+export async function criarConvite(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const rotulo = texto(formData, 'rotulo');
+  if (!rotulo) return erro('Dê um nome ao convite (ex.: “Trainees 2026.1”).');
+
+  // Vazio/0 = ilimitado; a coluna aceita null e o CHECK recusa zero.
+  const brutoUsos = formData.get('usos_max');
+  const usosMax = Number(brutoUsos) > 0 ? Number(brutoUsos) : null;
+
+  const dias = Number(formData.get('validade_dias'));
+  const expiraEm =
+    dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : null;
+
+  // 32 bytes: adivinhar um token por força bruta é inviável, e ele é a
+  // única coisa que separa um estranho de uma conta na área de membros.
+  const token = randomBytes(32).toString('base64url');
+
+  const { data, error } = await criarClienteAdmin()
+    .from('convites')
+    .insert({
+      token,
+      rotulo,
+      cargo: 'trainee',
+      turma: texto(formData, 'turma'),
+      area: texto(formData, 'area'),
+      dominio_email: texto(formData, 'dominio_email')?.toLowerCase().replace(/^@/, '') ?? null,
+      usos_max: usosMax,
+      expira_em: expiraEm,
+      criado_por: ator.id,
+    })
+    .select('token')
+    .single();
+
+  if (error) return erro(`Não foi possível criar o convite: ${error.message}`);
+
+  await registrar(ator, 'criar_convite', 'convites', null, { rotulo, usosMax });
+  revalidatePath('/membros/gestao/usuarios');
+  return { ok: true, mensagem: 'Convite criado. Copie o link e envie aos trainees.', token: data.token };
+}
+
+/** Desliga um link já enviado. Quem já criou a conta continua com ela. */
+export async function revogarConvite(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  if (!id) return erro('Convite não informado.');
+
+  const { error } = await criarClienteAdmin()
+    .from('convites')
+    .update({ revogado: true })
+    .eq('id', id);
+
+  if (error) return erro(`Não foi possível revogar: ${error.message}`);
+
+  await registrar(ator, 'revogar_convite', 'convites', id, null);
+  revalidatePath('/membros/gestao/usuarios');
+  return sucesso('Convite revogado.');
 }
 
 /* ==================================================================
