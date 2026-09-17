@@ -1,10 +1,13 @@
-/* Estilo compartilhado dos handouts — é copiado inline em cada arquivo.
-   Os handouts são autocontidos de propósito: abrem em iframe na área de
-   membros, mas também funcionam sozinhos se alguém baixar o arquivo. */
-:root {
+/* Estilo dos handouts.
+   Todo seletor vive sob `.handout` — nada de regra solta em body, h1 ou p.
+   O motivo: este CSS é injetado na página da área de membros, junto do CSS do
+   site. Sem escopo, `h2 { ... }` daqui reformataria o cabeçalho, o menu e as
+   entregas. As variáveis também ficam no `.handout`, não no `:root`, para não
+   sobrescrever as do site.
+   O mesmo arquivo serve ao HTML autocontido que vai para o bucket. */
+.handout {
   --preto: #0B0B0C;
   --carvao: #131316;
-  --painel: #17171B;
   --osso: #EDE9E3;
   --texto-2: #B8B4AE;
   --texto-3: #8A867F;
@@ -12,14 +15,19 @@
   --rosa: #E8B4B8;
   --linha: #232329;
   --linha-forte: #32323A;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --serif-h: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --mono-h: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
+  color: var(--osso);
+  font-size: 16px;
+  line-height: 1.75;
 }
 
-html[data-tema="claro"] {
+/* Modo de leitura claro, pedido no rodapé. Aplicado no próprio `.handout`,
+   então dentro do site ele clareia só a folha do handout. */
+.handout[data-tema="claro"] {
   --preto: #FBFAF8;
   --carvao: #F4F2EE;
-  --painel: #FFFFFF;
   --osso: #1A1A1C;
   --texto-2: #46454A;
   --texto-3: #6E6C73;
@@ -27,132 +35,125 @@ html[data-tema="claro"] {
   --rosa: #9C4A52;
   --linha: #E2DED7;
   --linha-forte: #CFCAC1;
-}
 
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
   background: var(--preto);
-  color: var(--osso);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1.75;
-  -webkit-font-smoothing: antialiased;
 }
 
-.folha { max-width: 760px; margin: 0 auto; padding: 56px 24px 96px; }
+.handout * { box-sizing: border-box; }
+
+.handout .folha { max-width: 760px; margin: 0 auto; }
 
 /* ---- cabeçalho ---- */
-.marca { display: flex; align-items: baseline; gap: 12px; margin-bottom: 48px; }
-.marca strong { font-size: 15px; letter-spacing: 0.22em; }
-.marca span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); }
+.handout .marca { display: flex; align-items: baseline; gap: 12px; margin-bottom: 48px; }
+.handout .marca strong { font-size: 15px; letter-spacing: 0.22em; font-weight: 600; }
+.handout .marca span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); }
 
-.etiqueta {
+.handout .etiqueta {
   font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--azul); margin-bottom: 18px;
 }
 
-h1 {
-  font-family: var(--serif); font-weight: 400;
+.handout h1 {
+  font-family: var(--serif-h); font-weight: 400;
   font-size: clamp(32px, 6vw, 46px); line-height: 1.1;
-  margin: 0 0 18px;
+  margin: 0 0 18px; color: var(--osso);
 }
 
-.abertura { font-size: 18px; line-height: 1.7; color: var(--texto-2); margin: 0 0 40px; max-width: 58ch; }
+.handout .abertura { font-size: 18px; line-height: 1.7; color: var(--texto-2); margin: 0 0 40px; max-width: 58ch; }
 
 /* ---- ficha técnica ---- */
-.ficha {
+.handout .ficha {
   display: grid; gap: 1px; background: var(--linha);
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  border: 1px solid var(--linha); margin-bottom: 64px;
+  border: 1px solid var(--linha); margin: 0 0 64px;
 }
-.ficha div { background: var(--carvao); padding: 16px 18px; }
-.ficha dt { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); margin-bottom: 6px; }
-.ficha dd { margin: 0; font-size: 15px; font-family: var(--mono); }
+.handout .ficha > div { background: var(--carvao); padding: 16px 18px; }
+.handout .ficha dt { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); margin-bottom: 6px; }
+.handout .ficha dd { margin: 0; font-size: 15px; font-family: var(--mono-h); }
 
 /* ---- texto ---- */
-h2 {
-  font-family: var(--serif); font-weight: 400; font-size: 27px; line-height: 1.25;
+.handout h2 {
+  font-family: var(--serif-h); font-weight: 400; font-size: 27px; line-height: 1.25;
   margin: 72px 0 20px; padding-bottom: 14px; border-bottom: 1px solid var(--linha-forte);
+  color: var(--osso);
 }
-h3 { font-size: 17px; font-weight: 600; margin: 44px 0 14px; letter-spacing: 0.01em; }
-p { margin: 0 0 18px; }
-a { color: var(--azul); }
-strong { font-weight: 600; }
-ul, ol { margin: 0 0 20px; padding-left: 22px; }
-li { margin-bottom: 10px; }
-li::marker { color: var(--texto-3); }
-code {
-  font-family: var(--mono); font-size: 0.9em;
+.handout h3 { font-size: 17px; font-weight: 600; margin: 44px 0 14px; color: var(--osso); }
+.handout p { margin: 0 0 18px; }
+.handout a { color: var(--azul); }
+.handout strong { font-weight: 600; }
+.handout em { font-style: italic; }
+.handout ul, .handout ol { margin: 0 0 20px; padding-left: 22px; }
+.handout li { margin-bottom: 10px; }
+.handout li::marker { color: var(--texto-3); }
+.handout code {
+  font-family: var(--mono-h); font-size: 0.9em;
   background: var(--carvao); border: 1px solid var(--linha);
   border-radius: 3px; padding: 1px 5px; white-space: nowrap;
 }
 
 /* ---- blocos de código ---- */
-.bloco { margin: 0 0 24px; border: 1px solid var(--linha-forte); background: var(--carvao); }
-.bloco > header {
-  display: flex; justify-content: space-between; align-items: center;
+.handout .bloco { margin: 0 0 24px; border: 1px solid var(--linha-forte); background: var(--carvao); }
+.handout .bloco > header {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
   padding: 9px 14px; border-bottom: 1px solid var(--linha);
   font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3);
 }
-.bloco.saida > header { color: var(--azul); }
-.bloco.errado { border-color: var(--rosa); }
-.bloco.errado > header { color: var(--rosa); }
-.bloco pre {
+.handout .bloco.saida > header { color: var(--azul); }
+.handout .bloco.errado { border-color: var(--rosa); }
+.handout .bloco.errado > header { color: var(--rosa); }
+.handout .bloco pre {
   margin: 0; padding: 18px 16px; overflow-x: auto;
-  font-family: var(--mono); font-size: 13.5px; line-height: 1.65;
+  font-family: var(--mono-h); font-size: 13.5px; line-height: 1.65;
   color: var(--osso);
 }
-.bloco.saida pre { color: var(--texto-2); }
-.copiar {
+.handout .bloco.saida pre { color: var(--texto-2); }
+.handout .copiar {
   font: inherit; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
   background: none; border: 1px solid var(--linha-forte); color: var(--texto-3);
-  padding: 4px 10px; cursor: pointer; border-radius: 2px;
+  padding: 4px 10px; cursor: pointer; border-radius: 2px; white-space: nowrap;
 }
-.copiar:hover { color: var(--osso); border-color: var(--texto-3); }
+.handout .copiar:hover { color: var(--osso); border-color: var(--texto-3); }
 
 /* ---- tabelas ---- */
-.rolagem { overflow-x: auto; margin: 0 0 24px; }
-table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
-th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--linha); vertical-align: top; }
-th { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); font-weight: 400; }
-tbody tr:last-child td { border-bottom: none; }
+.handout .rolagem { overflow-x: auto; margin: 0 0 24px; }
+.handout table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+.handout th, .handout td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+.handout th { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); font-weight: 400; }
+.handout tbody tr:last-child td { border-bottom: none; }
 
 /* ---- caixas ---- */
-.caixa { border: 1px solid var(--linha-forte); background: var(--carvao); padding: 22px 24px; margin: 0 0 24px; }
-.caixa > .titulo { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 12px; }
-.caixa p:last-child, .caixa ul:last-child, .caixa .bloco:last-child { margin-bottom: 0; }
-.guarde { border-left: 2px solid var(--azul); }
-.guarde > .titulo { color: var(--azul); }
-.checkpoint { border-left: 2px solid var(--rosa); }
-.checkpoint > .titulo { color: var(--rosa); }
+.handout .caixa { border: 1px solid var(--linha-forte); background: var(--carvao); padding: 22px 24px; margin: 0 0 24px; }
+.handout .caixa > .titulo { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 12px; }
+.handout .caixa p:last-child, .handout .caixa ul:last-child, .handout .caixa .bloco:last-child { margin-bottom: 0; }
+.handout .guarde { border-left: 2px solid var(--azul); }
+.handout .guarde > .titulo { color: var(--azul); }
+.handout .checkpoint { border-left: 2px solid var(--rosa); }
+.handout .checkpoint > .titulo { color: var(--rosa); }
 
-details { margin-top: 18px; border-top: 1px solid var(--linha); padding-top: 14px; }
-summary {
+.handout details { margin-top: 18px; border-top: 1px solid var(--linha); padding-top: 14px; }
+.handout summary {
   cursor: pointer; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--texto-3); list-style: none;
 }
-summary::-webkit-details-marker { display: none; }
-summary::before { content: "▸ "; }
-details[open] summary::before { content: "▾ "; }
-summary:hover { color: var(--osso); }
-details > *:not(summary) { margin-top: 16px; }
+.handout summary::-webkit-details-marker { display: none; }
+.handout summary::before { content: "▸ "; }
+.handout details[open] summary::before { content: "▾ "; }
+.handout summary:hover { color: var(--osso); }
+.handout details > *:not(summary) { margin-top: 16px; }
 
 /* ---- rodapé ---- */
-footer {
+.handout footer {
   margin-top: 88px; padding-top: 24px; border-top: 1px solid var(--linha);
   display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--texto-3);
 }
-#tema {
+.handout .alternar-tema {
   font: inherit; letter-spacing: 0.14em; text-transform: uppercase;
   background: none; border: 1px solid var(--linha-forte); color: var(--texto-3);
   padding: 7px 14px; cursor: pointer; border-radius: 2px;
 }
-#tema:hover { color: var(--osso); border-color: var(--texto-3); }
+.handout .alternar-tema:hover { color: var(--osso); border-color: var(--texto-3); }
 
 @media (max-width: 560px) {
-  .folha { padding: 36px 18px 72px; }
-  .bloco pre { font-size: 12.5px; }
+  .handout .bloco pre { font-size: 12.5px; }
 }

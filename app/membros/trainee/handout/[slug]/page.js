@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { exigirUsuario } from '@/lib/auth';
 import { ehGestao } from '@/lib/cargos';
-import { acharHandout, formatarLiberacao } from '@/lib/handouts';
-import { handoutsVisiveis } from '@/lib/handouts-storage';
+import { acharHandout, formatarLiberacao, partirHandout } from '@/lib/handouts';
+import { baixarHandout, handoutsVisiveis } from '@/lib/handouts-storage';
+import ComportamentoHandout from './ComportamentoHandout';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +20,6 @@ export default async function PaginaHandout({ params }) {
   const handout = acharHandout(params.slug);
   if (!handout) notFound();
 
-  // Esta página só serve para handout com HTML no bucket: é o iframe que
-  // renderiza o arquivo. Os que existem apenas como artifact publicado são
-  // abertos direto pelo card, fora do site — aqui dariam uma página vazia.
-  //
   // handoutsVisiveis() já aplica a data de liberação, então um trainee com o
   // link de uma aula que não abriu cai em 404 igual a quem inventou a URL.
   const disponiveis = (await handoutsVisiveis(gestao)).filter((h) => h.hospedado);
@@ -31,28 +28,33 @@ export default async function PaginaHandout({ params }) {
   const atual = disponiveis[indice];
   const anterior = disponiveis[indice - 1];
   const proximo = disponiveis[indice + 1];
-  const fonte = `/api/handouts/${handout.slug}`;
+
+  // O handout é escrito pela gestão e guardado em bucket privado com escrita
+  // restrita — é conteúdo nosso, não entrada de usuário, e por isso vai direto
+  // na página. O CSS dele é todo escopado em `.handout` (ver _estilo.css), o
+  // que impede o estilo da aula de vazar para o resto da área de membros.
+  const partes = partirHandout(await baixarHandout(handout));
+
+  if (!partes) {
+    return (
+      <div style={{ display: 'grid', gap: 24 }}>
+        <Link href="/membros/trainee" style={{ fontSize: 13, color: 'var(--texto-3)' }}>
+          ← Entregas e handouts
+        </Link>
+        <div className="painel" style={{ color: 'var(--texto-3)' }}>
+          Não foi possível ler este handout. O arquivo no bucket não está no formato que a página
+          espera{gestao ? ' — remonte com conteudo/handouts/_montar.mjs e suba de novo.' : '.'}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'grid', gap: 28 }}>
+    <div style={{ display: 'grid', gap: 32 }}>
       <div>
         <Link href="/membros/trainee" style={{ fontSize: 13, color: 'var(--texto-3)' }}>
           ← Entregas e handouts
         </Link>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>
-            Handout {String(handout.numero).padStart(2, '0')}
-          </div>
-          <h1 style={{ fontSize: 34, lineHeight: 1.15, marginBottom: 10 }}>{handout.titulo}</h1>
-          <p className="p-corpo" style={{ maxWidth: '58ch', margin: 0 }}>{handout.descricao}</p>
-        </div>
-
-        <a href={fonte} target="_blank" rel="noopener" className="btn btn--vazado">
-          Abrir em tela cheia
-        </a>
       </div>
 
       {/* Gestão chega aqui antes da turma; o aviso evita achar que já abriu. */}
@@ -63,25 +65,9 @@ export default async function PaginaHandout({ params }) {
         </div>
       )}
 
-      {/*
-        O handout é uma página inteira, com estilo e scripts próprios. Vai num
-        iframe para que o CSS dele não brigue com o do site. `sandbox` sem
-        allow-same-origin isolaria de vez, mas também mataria localStorage —
-        e os handouts guardam o progresso dos exercícios ali.
-      */}
-      <iframe
-        src={fonte}
-        title={`Handout ${handout.numero} — ${handout.titulo}`}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
-        style={{
-          width: '100%',
-          height: 'min(1400px, 85svh)',
-          border: '1px solid var(--linha-card)',
-          borderRadius: 2,
-          background: '#fff',
-          display: 'block',
-        }}
-      />
+      <style dangerouslySetInnerHTML={{ __html: partes.estilo }} />
+      <div dangerouslySetInnerHTML={{ __html: partes.corpo }} />
+      <ComportamentoHandout />
 
       <nav
         style={{

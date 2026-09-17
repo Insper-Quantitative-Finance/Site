@@ -1,11 +1,16 @@
 /**
- * Monta o HTML final de um handout a partir de um corpo e do estilo comum.
+ * Monta o HTML de um handout a partir de um corpo e do estilo comum.
  *
  *   node conteudo/handouts/_montar.mjs 2
  *
  * Lê `_corpo-<n>.html` (só o conteúdo, sem <html> nem <style>) e escreve o
- * arquivo autocontido que vai para o bucket. O estilo e o script ficam num
- * lugar só, para os handouts não divergirem de visual conforme forem saindo.
+ * arquivo que vai para o bucket. O estilo e o script ficam num lugar só, para
+ * os handouts não divergirem de visual conforme forem saindo.
+ *
+ * O arquivo tem dois usos, e é por isso que ele carrega os marcadores
+ * ESTILO/CORPO: aberto sozinho é uma página completa; dentro da área de
+ * membros, o servidor corta pelos marcadores e injeta estilo e corpo na
+ * própria página do site — sem iframe. Ver lib/handouts-storage.js.
  *
  * O corpo e o HTML montado não entram no repositório (o .gitignore barra
  * *.html aqui): este repositório é público. O que fica versionado é a
@@ -33,37 +38,57 @@ const [estilo, corpo] = await Promise.all([
   readFile(path.join(AQUI, `_corpo-${n}.html`), 'utf8'),
 ]);
 
-// Tema: aplicado antes da pintura para não piscar branco no escuro. O handout
-// abre em iframe com allow-same-origin, então o localStorage funciona e a
-// escolha do trainee sobrevive entre um handout e outro.
+// Só para o arquivo aberto sozinho: dentro do site, o fundo e a fonte são os
+// da área de membros, e estas regras não são injetadas.
+const estiloAvulso = `
+html { background: #0B0B0C; }
+body {
+  margin: 0; background: #0B0B0C;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.handout { padding: 56px 24px 96px; }
+@media (max-width: 560px) { .handout { padding: 36px 18px 72px; } }
+`.trim();
+
+// Também só para o arquivo avulso. Na área de membros, o mesmo comportamento
+// vem de um componente client (ComportamentoHandout), porque script injetado
+// por innerHTML não executa.
 const script = `
 (function () {
-  var html = document.documentElement;
-  try {
-    if (localStorage.getItem('iqf-tema') === 'claro') html.setAttribute('data-tema', 'claro');
-  } catch (e) {}
+  function pronto(fn) {
+    if (document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    var botao = document.getElementById('tema');
-    function rotulo() {
-      botao.textContent = html.getAttribute('data-tema') === 'claro' ? 'tema escuro' : 'tema claro';
-    }
-    rotulo();
-    botao.addEventListener('click', function () {
-      var claro = html.getAttribute('data-tema') === 'claro';
-      if (claro) html.removeAttribute('data-tema');
-      else html.setAttribute('data-tema', 'claro');
-      try { localStorage.setItem('iqf-tema', claro ? 'escuro' : 'claro'); } catch (e) {}
+  pronto(function () {
+    var folha = document.querySelector('.handout');
+    if (!folha) return;
+
+    try {
+      if (localStorage.getItem('iqf-tema') === 'claro') folha.setAttribute('data-tema', 'claro');
+    } catch (e) {}
+
+    var botao = folha.querySelector('.alternar-tema');
+    if (botao) {
+      var rotulo = function () {
+        botao.textContent = folha.getAttribute('data-tema') === 'claro' ? 'tema escuro' : 'tema claro';
+      };
       rotulo();
-    });
+      botao.addEventListener('click', function () {
+        var claro = folha.getAttribute('data-tema') === 'claro';
+        if (claro) folha.removeAttribute('data-tema');
+        else folha.setAttribute('data-tema', 'claro');
+        try { localStorage.setItem('iqf-tema', claro ? 'escuro' : 'claro'); } catch (e) {}
+        rotulo();
+      });
+    }
 
     // Copiar: o trainee vai rodar esses blocos no notebook, e código técnico
     // redigitado à mão erra em espaço e acento.
-    document.querySelectorAll('.bloco:not(.saida)').forEach(function (bloco) {
-      var botao = bloco.querySelector('.copiar');
-      if (!botao) return;
+    folha.querySelectorAll('.bloco:not(.saida) .copiar').forEach(function (botao) {
       botao.addEventListener('click', function () {
-        var codigo = bloco.querySelector('pre').textContent;
+        var codigo = botao.closest('.bloco').querySelector('pre').textContent;
         navigator.clipboard.writeText(codigo).then(function () {
           botao.textContent = 'copiado';
           setTimeout(function () { botao.textContent = 'copiar'; }, 1600);
@@ -84,14 +109,21 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${alvo.titulo}</title>
 <style>
+${estiloAvulso}
+</style>
+<style>
+/* ESTILO:INICIO */
 ${estilo.trim()}
+/* ESTILO:FIM */
 </style>
 <script>
 ${script}
 </script>
 </head>
 <body>
+<!-- CORPO:INICIO -->
 ${corpo.trim()}
+<!-- CORPO:FIM -->
 </body>
 </html>
 `;
