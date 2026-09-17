@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
+import { handoutsDisponiveis } from '@/lib/handouts';
 import { criarClienteServidor } from '@/lib/supabase/server';
 import GerenciarEntregas from './GerenciarEntregas';
 
@@ -81,6 +83,24 @@ function Entrega({ e }) {
   );
 }
 
+/** Handout que mora no site: abre dentro da área de membros, não baixa nada. */
+function CartaoHandout({ h }) {
+  return (
+    <Link
+      href={`/membros/trainee/handout/${h.slug}`}
+      className="painel"
+      style={{ display: 'flex', flexDirection: 'column', gap: 10, color: 'inherit' }}
+    >
+      <div className="eyebrow" style={{ letterSpacing: '0.16em' }}>
+        Handout {String(h.numero).padStart(2, '0')}
+      </div>
+      <div style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.25 }}>{h.titulo}</div>
+      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--texto-3)' }}>{h.descricao}</p>
+      <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: 'var(--azul)' }}>Abrir handout →</div>
+    </Link>
+  );
+}
+
 function Handout({ m }) {
   const destino = m.tipo === 'link' ? m.url : `/api/materiais/${m.id}/download`;
   const mb = m.arquivo_bytes ? m.arquivo_bytes / (1024 * 1024) : null;
@@ -105,7 +125,8 @@ export default async function Trainee() {
   const gestao = ehGestao(usuario.cargo);
   const supabase = criarClienteServidor();
 
-  const [{ data: entregas }, { data: handouts }] = await Promise.all([
+  const [aulas, { data: entregas }, { data: handouts }] = await Promise.all([
+    handoutsDisponiveis(),
     supabase.from('entregas').select('*').order('data_limite').order('ordem'),
     supabase
       .from('materiais')
@@ -162,21 +183,35 @@ export default async function Trainee() {
 
       <section>
         <div className="eyebrow" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--linha-forte)' }}>
-          Handouts · {(handouts ?? []).length}
+          Handouts · {aulas.length}
         </div>
-        {(handouts ?? []).length === 0 ? (
+        {aulas.length === 0 ? (
           <div className="painel" style={{ color: 'var(--texto-3)' }}>
-            Nenhum handout ainda.
-            {gestao
-              ? ' Suba os PDFs em Materiais escolhendo a categoria "Trainee" — eles aparecem aqui automaticamente.'
-              : ''}
+            Nenhum handout publicado ainda.
+            {gestao ? ' Coloque o HTML em conteudo/handouts/ — veja o README da pasta.' : ''}
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-            {(handouts ?? []).map((m) => <Handout key={m.id} m={m} />)}
-          </div>
+          <>
+            <p className="p-corpo" style={{ maxWidth: '58ch', margin: '0 0 24px' }}>
+              Cada handout abre aqui dentro, com o texto e os exercícios da aula. Faça na ordem.
+            </p>
+            <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+              {aulas.map((h) => <CartaoHandout key={h.slug} h={h} />)}
+            </div>
+          </>
         )}
       </section>
+
+      {(handouts ?? []).length > 0 && (
+        <section>
+          <div className="eyebrow" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--linha)' }}>
+            Material complementar · {handouts.length}
+          </div>
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            {handouts.map((m) => <Handout key={m.id} m={m} />)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
