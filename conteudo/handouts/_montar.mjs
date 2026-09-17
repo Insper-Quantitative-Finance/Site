@@ -51,9 +51,9 @@ body {
 @media (max-width: 560px) { .handout { padding: 36px 18px 72px; } }
 `.trim();
 
-// Também só para o arquivo avulso. Na área de membros, o mesmo comportamento
-// vem de um componente client (ComportamentoHandout), porque script injetado
-// por innerHTML não executa.
+// Só para o arquivo avulso: na área de membros o mesmo comportamento vem de um
+// componente client (ComportamentoHandout), porque script injetado por
+// innerHTML não executa.
 const script = `
 (function () {
   function pronto(fn) {
@@ -64,25 +64,6 @@ const script = `
   pronto(function () {
     var folha = document.querySelector('.handout');
     if (!folha) return;
-
-    try {
-      if (localStorage.getItem('iqf-tema') === 'claro') folha.setAttribute('data-tema', 'claro');
-    } catch (e) {}
-
-    var botao = folha.querySelector('.alternar-tema');
-    if (botao) {
-      var rotulo = function () {
-        botao.textContent = folha.getAttribute('data-tema') === 'claro' ? 'tema escuro' : 'tema claro';
-      };
-      rotulo();
-      botao.addEventListener('click', function () {
-        var claro = folha.getAttribute('data-tema') === 'claro';
-        if (claro) folha.removeAttribute('data-tema');
-        else folha.setAttribute('data-tema', 'claro');
-        try { localStorage.setItem('iqf-tema', claro ? 'escuro' : 'claro'); } catch (e) {}
-        rotulo();
-      });
-    }
 
     // Copiar: o trainee vai rodar esses blocos no notebook, e código técnico
     // redigitado à mão erra em espaço e acento.
