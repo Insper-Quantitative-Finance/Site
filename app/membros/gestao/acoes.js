@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
 import { emailPermitido, linkConvite, situacaoConvite } from '@/lib/convites';
 import { enviarEmail, montarConvite } from '@/lib/email';
+import { acharHandout, comoInstante } from '@/lib/handouts';
 import { lerConvidados } from '@/lib/planilha';
 import { usuarioOuNulo } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
@@ -774,4 +775,41 @@ export async function excluirEntrega(_estadoAnterior, formData) {
   await registrar(ator, 'excluir_entrega', 'entregas', id, null);
   revalidatePath('/membros/trainee');
   return sucesso('Entrega excluída.');
+}
+
+/**
+ * Marca (ou tira) a data em que um handout abre para a turma.
+ *
+ * O catálogo dos handouts está no código; o que se edita aqui é só o quando.
+ * Campo vazio = sem tranca, liberado na hora — é assim que a gestão desfaz um
+ * agendamento sem precisar de um botão separado.
+ */
+export async function salvarLiberacaoHandout(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const slug = texto(formData, 'slug');
+  if (!slug) return erro('Handout não informado.');
+  if (!acharHandout(slug)) return erro('Handout desconhecido.');
+
+  const local = texto(formData, 'liberado_em');
+  const instante = local ? comoInstante(local) : null;
+  if (local && !instante) return erro('Data inválida. Use o seletor de data e hora.');
+
+  const { error } = await criarClienteAdmin()
+    .from('handouts')
+    .upsert(
+      { slug, liberado_em: instante, autor_id: ator.id, atualizado_em: new Date().toISOString() },
+      { onConflict: 'slug' },
+    );
+
+  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+
+  await registrar(ator, 'liberar_handout', 'handouts', slug, { liberado_em: instante });
+  revalidatePath('/membros/trainee');
+  return sucesso(instante ? 'Data de liberação salva.' : 'Handout liberado para a turma.');
 }

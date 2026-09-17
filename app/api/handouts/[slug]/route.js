@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { usuarioOuNulo } from '@/lib/auth';
+import { ehGestao } from '@/lib/cargos';
 import { acharHandout } from '@/lib/handouts';
-import { baixarHandout } from '@/lib/handouts-storage';
+import { baixarHandout, podeAbrirHandout } from '@/lib/handouts-storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,12 @@ export async function GET(_request, { params }) {
   const handout = acharHandout(params.slug);
   if (!handout) {
     return NextResponse.json({ erro: 'Handout não encontrado.' }, { status: 404 });
+  }
+
+  // A trava de data vale aqui, não só na listagem: esconder o card e deixar a
+  // URL aberta não esconde nada — basta um trainee passar o link ao outro.
+  if (!(await podeAbrirHandout(handout, usuario, ehGestao(usuario.cargo)))) {
+    return NextResponse.json({ erro: 'Este handout ainda não foi liberado.' }, { status: 403 });
   }
 
   const html = await baixarHandout(handout);

@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { exigirUsuario } from '@/lib/auth';
-import { acharHandout } from '@/lib/handouts';
-import { handoutsDisponiveis } from '@/lib/handouts-storage';
+import { ehGestao } from '@/lib/cargos';
+import { acharHandout, formatarLiberacao } from '@/lib/handouts';
+import { handoutsVisiveis } from '@/lib/handouts-storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,8 @@ export function generateMetadata({ params }) {
 }
 
 export default async function PaginaHandout({ params }) {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
+  const gestao = ehGestao(usuario.cargo);
 
   const handout = acharHandout(params.slug);
   if (!handout) notFound();
@@ -20,9 +22,13 @@ export default async function PaginaHandout({ params }) {
   // Esta página só serve para handout com HTML no bucket: é o iframe que
   // renderiza o arquivo. Os que existem apenas como artifact publicado são
   // abertos direto pelo card, fora do site — aqui dariam uma página vazia.
-  const disponiveis = (await handoutsDisponiveis()).filter((h) => h.hospedado);
+  //
+  // handoutsVisiveis() já aplica a data de liberação, então um trainee com o
+  // link de uma aula que não abriu cai em 404 igual a quem inventou a URL.
+  const disponiveis = (await handoutsVisiveis(gestao)).filter((h) => h.hospedado);
   const indice = disponiveis.findIndex((h) => h.slug === handout.slug);
   if (indice < 0) notFound();
+  const atual = disponiveis[indice];
   const anterior = disponiveis[indice - 1];
   const proximo = disponiveis[indice + 1];
   const fonte = `/api/handouts/${handout.slug}`;
@@ -48,6 +54,14 @@ export default async function PaginaHandout({ params }) {
           Abrir em tela cheia
         </a>
       </div>
+
+      {/* Gestão chega aqui antes da turma; o aviso evita achar que já abriu. */}
+      {!atual.liberado && (
+        <div className="painel" style={{ fontSize: 14, color: 'var(--texto-3)', borderColor: 'var(--azul)' }}>
+          Ainda fechado para os trainees — abre em {formatarLiberacao(atual.liberadoEm)}. Você está
+          vendo como gestão.
+        </div>
+      )}
 
       {/*
         O handout é uma página inteira, com estilo e scripts próprios. Vai num

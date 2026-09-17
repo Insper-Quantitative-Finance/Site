@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
-import { handoutsDisponiveis } from '@/lib/handouts-storage';
+import { formatarLiberacao } from '@/lib/handouts';
+import { handoutsVisiveis } from '@/lib/handouts-storage';
 import { criarClienteServidor } from '@/lib/supabase/server';
 import GerenciarEntregas from './GerenciarEntregas';
+import GerenciarHandouts from './GerenciarHandouts';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Trainee · IQF' };
@@ -90,6 +92,9 @@ function Entrega({ e }) {
  */
 function CartaoHandout({ h }) {
   const interno = h.hospedado;
+  // Card sem destino: só a gestão chega aqui (handout fechado ou sem arquivo).
+  // Vira cartão inerte, com o motivo à vista, em vez de link que não leva a nada.
+  const inerte = !h.abrivel || !h.liberado;
   const conteudo = (
     <>
       <div className="eyebrow" style={{ letterSpacing: '0.16em' }}>
@@ -97,16 +102,30 @@ function CartaoHandout({ h }) {
       </div>
       <div style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.25 }}>{h.titulo}</div>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--texto-3)' }}>{h.descricao}</p>
-      <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: 'var(--azul)' }}>
-        {interno ? 'Abrir handout →' : 'Abrir handout ↗'}
+      <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: inerte ? 'var(--texto-3)' : 'var(--azul)' }}>
+        {inerte
+          ? !h.abrivel
+            ? 'Sem arquivo ainda'
+            : `Abre em ${formatarLiberacao(h.liberadoEm)}`
+          : interno
+            ? 'Abrir handout →'
+            : 'Abrir handout ↗'}
       </div>
-      {!interno && (
+      {!inerte && !interno && (
         <div style={{ fontSize: 12, color: 'var(--texto-3)' }}>Abre fora do site, em nova aba.</div>
       )}
     </>
   );
 
   const estilo = { display: 'flex', flexDirection: 'column', gap: 10, color: 'inherit' };
+
+  if (inerte) {
+    return (
+      <div className="painel" style={{ ...estilo, opacity: 0.6 }}>
+        {conteudo}
+      </div>
+    );
+  }
 
   return interno ? (
     <Link href={`/membros/trainee/handout/${h.slug}`} className="painel" style={estilo}>
@@ -144,7 +163,7 @@ export default async function Trainee() {
   const supabase = criarClienteServidor();
 
   const [aulas, { data: entregas }, { data: handouts }] = await Promise.all([
-    handoutsDisponiveis(),
+    handoutsVisiveis(gestao),
     supabase.from('entregas').select('*').order('data_limite').order('ordem'),
     supabase
       .from('materiais')
@@ -171,6 +190,7 @@ export default async function Trainee() {
       </div>
 
       {gestao && <GerenciarEntregas entregas={lista} />}
+      {gestao && aulas.length > 0 && <GerenciarHandouts handouts={aulas} />}
 
       <section>
         <div className="eyebrow" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--linha-forte)' }}>
@@ -205,8 +225,9 @@ export default async function Trainee() {
         </div>
         {aulas.length === 0 ? (
           <div className="painel" style={{ color: 'var(--texto-3)' }}>
-            Nenhum handout publicado ainda.
-            {gestao ? ' Suba o HTML com scripts/subir-handout.mjs — veja conteudo/handouts/README.md.' : ''}
+            {gestao
+              ? 'Nenhum handout no catálogo. Suba o HTML com scripts/subir-handout.mjs — veja conteudo/handouts/README.md.'
+              : 'Nenhum handout liberado ainda. Cada aula aparece aqui na data dela.'}
           </div>
         ) : (
           <>
