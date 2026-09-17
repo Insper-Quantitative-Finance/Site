@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { exigirUsuario } from '@/lib/auth';
-import { acharHandout, handoutsDisponiveis } from '@/lib/handouts';
+import { acharHandout } from '@/lib/handouts';
+import { handoutsDisponiveis } from '@/lib/handouts-storage';
 
 export const dynamic = 'force-dynamic';
 

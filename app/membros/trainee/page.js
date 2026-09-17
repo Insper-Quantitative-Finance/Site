@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
-import { handoutsDisponiveis } from '@/lib/handouts';
+import { handoutsDisponiveis } from '@/lib/handouts-storage';
 import { criarClienteServidor } from '@/lib/supabase/server';
 import GerenciarEntregas from './GerenciarEntregas';
 
@@ -188,7 +188,7 @@ export default async function Trainee() {
         {aulas.length === 0 ? (
           <div className="painel" style={{ color: 'var(--texto-3)' }}>
             Nenhum handout publicado ainda.
-            {gestao ? ' Coloque o HTML em conteudo/handouts/ — veja o README da pasta.' : ''}
+            {gestao ? ' Suba o HTML com scripts/subir-handout.mjs — veja conteudo/handouts/README.md.' : ''}
           </div>
         ) : (
           <>
