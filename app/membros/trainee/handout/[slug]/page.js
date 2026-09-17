@@ -17,9 +17,10 @@ export default async function PaginaHandout({ params }) {
   const handout = acharHandout(params.slug);
   if (!handout) notFound();
 
-  // Anterior/próximo só entre os que têm arquivo — um link para um handout
-  // ainda não publicado levaria a uma página vazia.
-  const disponiveis = await handoutsDisponiveis();
+  // Esta página só serve para handout com HTML no bucket: é o iframe que
+  // renderiza o arquivo. Os que existem apenas como artifact publicado são
+  // abertos direto pelo card, fora do site — aqui dariam uma página vazia.
+  const disponiveis = (await handoutsDisponiveis()).filter((h) => h.hospedado);
   const indice = disponiveis.findIndex((h) => h.slug === handout.slug);
   if (indice < 0) notFound();
   const anterior = disponiveis[indice - 1];

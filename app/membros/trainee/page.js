@@ -83,21 +83,39 @@ function Entrega({ e }) {
   );
 }
 
-/** Handout que mora no site: abre dentro da área de membros, não baixa nada. */
+/**
+ * Card da aula. Quando o HTML está no bucket, abre dentro da área de membros;
+ * enquanto não está, leva à versão publicada — e o card diz que sai do site,
+ * para o trainee não estranhar a troca de domínio.
+ */
 function CartaoHandout({ h }) {
-  return (
-    <Link
-      href={`/membros/trainee/handout/${h.slug}`}
-      className="painel"
-      style={{ display: 'flex', flexDirection: 'column', gap: 10, color: 'inherit' }}
-    >
+  const interno = h.hospedado;
+  const conteudo = (
+    <>
       <div className="eyebrow" style={{ letterSpacing: '0.16em' }}>
         Handout {String(h.numero).padStart(2, '0')}
       </div>
       <div style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.25 }}>{h.titulo}</div>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--texto-3)' }}>{h.descricao}</p>
-      <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: 'var(--azul)' }}>Abrir handout →</div>
+      <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: 'var(--azul)' }}>
+        {interno ? 'Abrir handout →' : 'Abrir handout ↗'}
+      </div>
+      {!interno && (
+        <div style={{ fontSize: 12, color: 'var(--texto-3)' }}>Abre fora do site, em nova aba.</div>
+      )}
+    </>
+  );
+
+  const estilo = { display: 'flex', flexDirection: 'column', gap: 10, color: 'inherit' };
+
+  return interno ? (
+    <Link href={`/membros/trainee/handout/${h.slug}`} className="painel" style={estilo}>
+      {conteudo}
     </Link>
+  ) : (
+    <a href={h.urlPublica} target="_blank" rel="noopener" className="painel" style={estilo}>
+      {conteudo}
+    </a>
   );
 }
 
