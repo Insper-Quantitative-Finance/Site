@@ -89,12 +89,20 @@ function Entrega({ e }) {
  * Card da aula. Quando o HTML está no bucket, abre dentro da área de membros;
  * enquanto não está, leva à versão publicada — e o card diz que sai do site,
  * para o trainee não estranhar a troca de domínio.
+ *
+ * A trava de data não vive aqui: quem filtra o que cada cargo vê é
+ * handoutsVisiveis(), e as rotas de conteúdo repetem a checagem. Este card só
+ * mostra o estado.
  */
 function CartaoHandout({ h }) {
   const interno = h.hospedado;
-  // Card sem destino: só a gestão chega aqui (handout fechado ou sem arquivo).
-  // Vira cartão inerte, com o motivo à vista, em vez de link que não leva a nada.
-  const inerte = !h.abrivel || !h.liberado;
+  // Sem arquivo não há o que abrir: cartão inerte, com o motivo à vista, em vez
+  // de link que não leva a nada.
+  //
+  // Handout FECHADO continua clicável. Quem vê um card fechado é a gestão — o
+  // trainee não recebe esses na lista —, e é justamente ela que precisa abrir
+  // para revisar a aula antes da turma.
+  const inerte = !h.abrivel;
   const conteudo = (
     <>
       <div className="eyebrow" style={{ letterSpacing: '0.16em' }}>
@@ -103,14 +111,13 @@ function CartaoHandout({ h }) {
       <div style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.25 }}>{h.titulo}</div>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--texto-3)' }}>{h.descricao}</p>
       <div style={{ marginTop: 'auto', paddingTop: 6, fontSize: 13, color: inerte ? 'var(--texto-3)' : 'var(--azul)' }}>
-        {inerte
-          ? !h.abrivel
-            ? 'Sem arquivo ainda'
-            : `Abre em ${formatarLiberacao(h.liberadoEm)}`
-          : interno
-            ? 'Abrir handout →'
-            : 'Abrir handout ↗'}
+        {inerte ? 'Sem arquivo ainda' : interno ? 'Abrir handout →' : 'Abrir handout ↗'}
       </div>
+      {!h.liberado && h.abrivel && (
+        <div style={{ fontSize: 12, color: '#E8B4B8' }}>
+          Fechado para a turma · abre em {formatarLiberacao(h.liberadoEm)}
+        </div>
+      )}
       {!inerte && !interno && (
         <div style={{ fontSize: 12, color: 'var(--texto-3)' }}>Abre fora do site, em nova aba.</div>
       )}
