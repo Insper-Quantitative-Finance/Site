@@ -183,9 +183,39 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 .cartao-post__link { margin-top: auto; padding-top: 8px; }
 
 /* ---------------------------------------------------------------- hero */
-@keyframes meshOrbit { 0% { transform: scale(1.6) rotate(0); } 100% { transform: scale(1.6) rotate(360deg); } }
-.mesh { transform: scale(1.06); }
-.mesh-b { animation: meshOrbit 20s linear infinite; will-change: transform; mix-blend-mode: screen; }
+/* O mesh do hero é a parte mais cara da página inteira: duas camadas do
+   tamanho da viewport, desfocadas, com uma delas girando sem parar. Três
+   decisões o mantêm barato, e vale saber o porquê antes de mexer:
+
+   1. O blur fica num elemento ESTÁTICO (.mesh-b), e a rotação no pai
+      (.mesh-b-orbita). Com os dois no mesmo elemento, o Chrome refaz o
+      desfoque a cada quadro, porque o conteúdo "mudou"; separados, ele
+      rasteriza o borrão uma vez e só gira a textura pronta.
+   2. Sem mix-blend-mode. Blend obriga o compositor a ler o que está atrás a
+      cada quadro e mata o caminho rápido da GPU. Sobre um fundo quase preto,
+      `screen` e opacidade normal dão quase o mesmo resultado — a conta do
+      screen é 1-(1-a)(1-b), e com b≈0 ela vira o próprio a.
+   3. Raios de blur menores (30/40 em vez de 52/70). O custo cresce com o
+      raio, e os gradientes radiais já são suaves por natureza: o desfoque
+      aqui tira a borda, não constrói a forma.
+
+   Resultado visual praticamente idêntico; o custo por quadro cai para quase
+   nada, que é o que faz a diferença num Chrome sem aceleração por hardware. */
+@keyframes meshOrbit { from { transform: scale(1.6) rotate(0); } to { transform: scale(1.6) rotate(360deg); } }
+.mesh { transform: scale(1.06); filter: blur(30px); }
+.mesh-b-orbita {
+  position: absolute;
+  inset: 0;
+  animation: meshOrbit 20s linear infinite;
+  will-change: transform;
+}
+.mesh-b { position: absolute; inset: 0; filter: blur(40px); opacity: .9; }
+
+/* Animação só enquanto o hero está na tela. Um `infinite` continua queimando
+   GPU depois que você rolou para longe, e é justamente aí que a página
+   precisa de fôlego para rolar liso. */
+.hero-fora-da-tela .mesh-b-orbita,
+.hero-fora-da-tela .hero-glow { animation-play-state: paused; }
 @keyframes glowBreathe { 0%,100% { opacity:.28; } 50% { opacity:.6; } }
 .hero-glow { opacity: .4; animation: glowBreathe 4.5s ease-in-out infinite; will-change: opacity; }
 @keyframes heroRise { from { opacity: 0; transform: translate3d(0,16px,0); } to { opacity: 1; transform: none; } }
@@ -327,7 +357,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   .splash { transition: none; }
 
   [data-reveal] { opacity: 1; transform: none; transition: none; }
-  .hero-logo, .mesh, .mesh-b, .hero-glow, .marquee-row { animation: none; }
+  .hero-logo, .mesh, .mesh-b-orbita, .hero-glow, .marquee-row { animation: none; }
   .marquee { overflow-x: auto; }
   html { scroll-behavior: auto; }
   .photo:hover img { transform: none; }

@@ -15,13 +15,24 @@ export default function Revelar() {
       el.style.transitionDelay = `${(i % 3) * 90}ms`;
     });
 
+    // Fica só com quem ainda falta revelar. Cada getBoundingClientRect() força
+    // o navegador a recalcular layout, então varrer a página inteira a cada
+    // rolagem é justamente o tipo de conta que faz o scroll engasgar.
+    let pendentes = alvos;
+
     const revelarVisiveis = () => {
       const vh = window.innerHeight || 0;
-      alvos.forEach((el) => {
-        if (el.classList.contains('is-in')) return;
+      pendentes = pendentes.filter((el) => {
         const r = el.getBoundingClientRect();
-        if (r.top < vh * 0.92 && r.bottom > 0) el.classList.add('is-in');
+        if (r.top < vh * 0.92 && r.bottom > 0) {
+          el.classList.add('is-in');
+          return false;
+        }
+        return true;
       });
+      // Revelado tudo, o fallback não tem mais o que fazer: sai do caminho em
+      // vez de rodar um rAF a cada rolagem pelo resto da visita.
+      if (pendentes.length === 0) desligarFallback();
     };
 
     let agendado = false;
@@ -32,6 +43,11 @@ export default function Revelar() {
         agendado = false;
         revelarVisiveis();
       });
+    };
+
+    const desligarFallback = () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -55,8 +71,7 @@ export default function Revelar() {
     }
 
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      desligarFallback();
       io?.disconnect();
     };
   }, []);
