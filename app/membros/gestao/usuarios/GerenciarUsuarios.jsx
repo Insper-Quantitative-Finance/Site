@@ -4,9 +4,18 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
-import { criarUsuario, editarUsuario, enviarRedefinicaoSenha } from '@/app/membros/gestao/acoes';
+import { criarUsuario, editarUsuario, enviarRedefinicaoSenha, excluirUsuario } from '@/app/membros/gestao/acoes';
 import { DOMINIO_PERMITIDO } from '@/lib/convites';
-import { CARGOS_LISTA, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
+import {
+  CARGOS_LISTA,
+  cargosAtribuiveis,
+  ehGestao,
+  motivoNaoExcluir,
+  podeAlterarCargo,
+  podeEditarUsuario,
+  podeExcluirUsuario,
+  rotuloCargo,
+} from '@/lib/cargos';
 
 function FormularioNovo({ ator, aoFechar }) {
   const router = useRouter();
@@ -172,6 +181,70 @@ function FormularioEdicao({ usuario, ator, aoFechar }) {
   );
 }
 
+/**
+ * Apagar conta fica fora do formulário de edição (de propósito: form não aninha,
+ * e a ação não deve viajar junto com um "Salvar") e atrás de dois passos — abrir
+ * a zona de risco e digitar o e-mail. Some para quem não é presidência.
+ */
+function ZonaRisco({ usuario, ator, aoApagar }) {
+  const [aberta, setAberta] = useState(false);
+  const [estado, acao] = useFormState(excluirUsuario, null);
+
+  useEffect(() => {
+    if (estado?.ok) aoApagar();
+  }, [estado, aoApagar]);
+
+  if (!podeExcluirUsuario(ator, usuario)) {
+    const motivo = motivoNaoExcluir(ator, usuario);
+    return (
+      <div className="painel" style={{ fontSize: 13, color: 'var(--texto-3)' }}>
+        {motivo} Para tirar o acesso, desmarque <strong>Membro ativo</strong> acima.
+      </div>
+    );
+  }
+
+  if (!aberta) {
+    return (
+      <div className="painel" style={{ display: 'grid', gap: 12, justifyItems: 'start' }}>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
+          Para só tirar o acesso, desmarque <strong>Membro ativo</strong> acima — o histórico fica. Apagar é definitivo.
+        </p>
+        <button type="button" className="btn btn--vazado btn--pequeno" onClick={() => setAberta(true)}>
+          Apagar conta de {usuario.nome}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={acao} className="painel" style={{ display: 'grid', gap: 16 }}>
+      <h2 style={{ fontSize: 18, margin: 0 }}>Apagar a conta de {usuario.nome}</h2>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
+        Isto é irreversível: a pessoa perde o login, sai do quadro e das equipes dos projetos. Tarefas, reuniões e
+        materiais que ela criou continuam no lugar, mas sem autor.
+      </p>
+      <Feedback estado={estado} />
+
+      <input type="hidden" name="id" value={usuario.id} />
+      <div className="campo">
+        <label htmlFor="apagar-confirmacao">Digite {usuario.email} para confirmar</label>
+        <input
+          id="apagar-confirmacao"
+          name="confirmacao"
+          required
+          autoComplete="off"
+          placeholder={usuario.email}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <BotaoEnviar carregando="Apagando…">Apagar definitivamente</BotaoEnviar>
+        <button type="button" className="btn btn--vazado" onClick={() => setAberta(false)}>Cancelar</button>
+      </div>
+    </form>
+  );
+}
+
 function BotaoRedefinir({ email }) {
   const [estado, acao] = useFormState(enviarRedefinicaoSenha, null);
   // Lido depois da montagem para o HTML do servidor e o do cliente baterem.
@@ -191,6 +264,7 @@ function BotaoRedefinir({ email }) {
 }
 
 export default function GerenciarUsuarios({ usuarios, ator }) {
+  const router = useRouter();
   const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState(null);
 
@@ -207,12 +281,20 @@ export default function GerenciarUsuarios({ usuarios, ator }) {
 
       {criando && <FormularioNovo ator={ator} aoFechar={() => setCriando(false)} />}
       {editando && (
-        <FormularioEdicao
-          key={editando.id}
-          usuario={editando}
-          ator={ator}
-          aoFechar={() => setEditando(null)}
-        />
+        <>
+          <FormularioEdicao
+            key={editando.id}
+            usuario={editando}
+            ator={ator}
+            aoFechar={() => setEditando(null)}
+          />
+          <ZonaRisco
+            key={`risco-${editando.id}`}
+            usuario={editando}
+            ator={ator}
+            aoApagar={() => { setEditando(null); router.refresh(); }}
+          />
+        </>
       )}
 
       <div style={{ overflowX: 'auto' }}>

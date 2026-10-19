@@ -2,7 +2,15 @@
 
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
+import {
+  CARGOS,
+  cargosAtribuiveis,
+  ehGestao,
+  motivoNaoExcluir,
+  podeAlterarCargo,
+  podeEditarUsuario,
+  rotuloCargo,
+} from '@/lib/cargos';
 import {
   DOMINIO_PERMITIDO,
   MOTIVO_DOMINIO,
@@ -181,6 +189,53 @@ export async function editarUsuario(_estadoAnterior, formData) {
   revalidatePath('/membros/gestao/usuarios');
   revalidatePath('/membros/quadro');
   return sucesso('Usuário atualizado.');
+}
+
+/**
+ * Apaga a conta de vez: o delete no auth cascateia para profiles, e de lá para
+ * equipes/entregas (cascade) e autorias (set null, o histórico sobrevive sem dono).
+ *
+ * Restrito à presidência e nunca à própria conta — ver podeExcluirUsuario.
+ * Pede o e-mail digitado como confirmação: um clique errado na lista não apaga
+ * ninguém, e o e-mail é o que está visível na linha.
+ */
+export async function excluirUsuario(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  const confirmacao = texto(formData, 'confirmacao')?.toLowerCase();
+  if (!id) return erro('Dados incompletos.');
+
+  const admin = criarClienteAdmin();
+  const { data: alvo } = await admin.from('profiles').select('id, nome, email, cargo').eq('id', id).single();
+  if (!alvo) return erro('Usuário não encontrado.');
+
+  const motivo = motivoNaoExcluir(ator, alvo);
+  if (motivo) return erro(motivo);
+
+  if (confirmacao !== alvo.email.toLowerCase()) {
+    return erro(`Para confirmar, digite exatamente o e-mail ${alvo.email}.`);
+  }
+
+  // Auditoria antes do delete: depois dele, ator_id continua válido mas o alvo
+  // não existe mais para consultar — o nome e o cargo ficam registrados aqui.
+  await registrar(ator, 'excluir_usuario', 'profiles', alvo.id, {
+    email: alvo.email,
+    nome: alvo.nome,
+    cargo: alvo.cargo,
+  });
+
+  const { error } = await admin.auth.admin.deleteUser(alvo.id);
+  if (error) return erro(`Não foi possível apagar a conta: ${error.message}`);
+
+  revalidatePath('/membros/gestao/usuarios');
+  revalidatePath('/membros/quadro');
+  return sucesso(`A conta de ${alvo.nome} foi apagada.`);
 }
 
 /**
