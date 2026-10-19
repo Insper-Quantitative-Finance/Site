@@ -8,6 +8,7 @@ import {
   criarConvidado,
   criarConvitesLote,
   enviarConvite,
+  marcarConviteEnviado,
   prepararConvidados,
   revogarConvite,
 } from '@/app/membros/gestao/acoes';
@@ -62,6 +63,55 @@ function BotaoCopiar({ link, rotulo = 'Copiar link' }) {
   );
 }
 
+/**
+ * Abre o Gmail numa aba nova, com destinatário, assunto e corpo já escritos.
+ *
+ * É o caminho que não depende de nada: sem chave de API, sem serviço de
+ * entrega, sem configuração. Quem manda é você, da sua própria caixa, então o
+ * e-mail também não cai em spam por domínio não verificado.
+ *
+ * Gmail e não `mailto:` porque `mailto:` entrega o problema para o cliente de
+ * e-mail padrão do sistema — que, num Windows sem Outlook configurado, pode
+ * simplesmente não abrir nada. A conta da liga é Gmail; abrir o Gmail é
+ * determinístico.
+ */
+function enderecoGmail({ nome, email, link }) {
+  const primeiro = String(nome ?? '').split(' ')[0];
+
+  const assunto = 'Seu acesso à área de membros da IQF';
+  const corpo =
+    `Olá, ${primeiro}!\n\n` +
+    'Você foi convidado para a área de membros da Insper Quantitative Finance.\n' +
+    `Crie sua conta neste link:\n\n${link}\n\n` +
+    'Este link é pessoal — não repasse. Nele você confirma seu nome e escolhe sua própria senha.\n\n' +
+    'Insper Quantitative Finance';
+
+  const q = new URLSearchParams({ view: 'cm', fs: '1', to: email, su: assunto, body: corpo });
+  return `https://mail.google.com/mail/?${q}`;
+}
+
+/**
+ * Abre a mensagem e marca o convite como enviado no mesmo clique.
+ *
+ * Marcar no clique, e não depois de confirmar que a mensagem saiu, é uma
+ * escolha: não há como saber daqui se você apertou Enviar no Gmail. O registro
+ * serve para você não perder a conta numa turma de 60 — e o botão continua
+ * disponível para reabrir a mensagem, então marcar cedo não tranca nada.
+ */
+function BotaoEmail({ id, nome, email, link, aoMarcar, rotulo = 'Abrir e-mail' }) {
+  return (
+    <a
+      className="btn btn--vazado btn--pequeno"
+      href={enderecoGmail({ nome, email, link })}
+      target="_blank"
+      rel="noopener"
+      onClick={() => aoMarcar?.(id)}
+    >
+      {rotulo}
+    </a>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Uma pessoa por vez: nome e e-mail, e nada mais                      */
 /* ------------------------------------------------------------------ */
@@ -74,7 +124,7 @@ function BotaoCopiar({ link, rotulo = 'Copiar link' }) {
  * Nada de turma, frente de trabalho ou validade: o perfil se completa depois,
  * e o convite vale até alguém usar ou revogar.
  */
-function Individual({ cargo, origem, aoFechar }) {
+function Individual({ cargo, origem, emailPronto, aoMarcar, aoFechar }) {
   const router = useRouter();
   const [estado, acao] = useFormState(criarConvidado, null);
   const formulario = useRef(null);
@@ -109,6 +159,18 @@ function Individual({ cargo, origem, aoFechar }) {
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <BotaoCopiar link={link} />
+          {/* Sem envio automático (ou se ele falhou), este é o caminho: abre a
+              sua própria caixa de e-mail com a mensagem escrita. */}
+          {!estado.envio?.ok && (
+            <BotaoEmail
+              id={estado.id}
+              nome={estado.nome}
+              email={estado.email}
+              link={link}
+              aoMarcar={aoMarcar}
+              rotulo="Abrir e-mail pronto"
+            />
+          )}
           {/* Fechar remonta o formulário limpo na próxima abertura, que é o
               caminho para convidar a pessoa seguinte. */}
           <button type="button" className="btn btn--solido" onClick={aoFechar}>Concluir</button>
@@ -153,10 +215,20 @@ function Individual({ cargo, origem, aoFechar }) {
         </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, color: 'var(--texto-2)' }}>
-        <input type="checkbox" name="enviar_email" defaultChecked />
-        Enviar o e-mail com o link agora
-      </label>
+      {/* Sem RESEND_API_KEY no servidor a caixa só criaria uma falha de envio
+          garantida. Nesse caso o link sai na tela e o botão "Abrir e-mail
+          pronto" cuida do resto. */}
+      {emailPronto ? (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, color: 'var(--texto-2)' }}>
+          <input type="checkbox" name="enviar_email" defaultChecked />
+          Enviar o e-mail com o link agora
+        </label>
+      ) : (
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
+          O envio automático não está configurado. Vai sair o link pessoal na tela, com um botão que abre o Gmail
+          numa aba nova, com a mensagem já escrita — você só confere e aperta Enviar.
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <BotaoEnviar carregando="Criando…">Gerar convite</BotaoEnviar>
@@ -380,7 +452,7 @@ function BotaoRevogar({ id, aoConcluir }) {
   );
 }
 
-export default function Convidados({ convidados }) {
+export default function Convidados({ convidados, emailPronto }) {
   const router = useRouter();
   // O que está aberto: { tipo: 'um' | 'planilha', cargo }. Cada botão abre o
   // formulário já com o cargo decidido — um clique em "Adicionar trainee" não
@@ -398,6 +470,14 @@ export default function Convidados({ convidados }) {
   const pendentes = convidados.filter(
     (c) => !c.revogado && c.usos === 0 && !c.enviado_em && situacaoConvite(c).valor === 'ativo',
   );
+
+  /** Registra que o convite saiu à mão, pelo Gmail. */
+  async function marcar(id) {
+    const fd = new FormData();
+    fd.set('id', id);
+    await marcarConviteEnviado(null, fd);
+    router.refresh();
+  }
 
   /** Dispara um convite. Mesma função para o botão da linha e para o lote. */
   async function enviarUm(id) {
@@ -466,6 +546,8 @@ export default function Convidados({ convidados }) {
           key={aberto.cargo}
           cargo={aberto.cargo}
           origem={origem}
+          emailPronto={emailPronto}
+          aoMarcar={marcar}
           aoFechar={() => setAberto(null)}
         />
       )}
@@ -479,22 +561,24 @@ export default function Convidados({ convidados }) {
 
       {convidados.length > 0 && (
         <>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn--solido"
-              onClick={enviarTodos}
-              disabled={pendentes.length === 0 || disparando !== null}
-            >
-              {disparando
-                ? `Enviando ${disparando.feitos + 1} de ${disparando.total}…`
-                : `Enviar todos (${pendentes.length} não enviados)`}
-            </button>
-            {disparando && (
-              <button className="btn btn--vazado" onClick={() => { cancelar.current = true; }}>
-                Parar
+          {emailPronto && (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn--solido"
+                onClick={enviarTodos}
+                disabled={pendentes.length === 0 || disparando !== null}
+              >
+                {disparando
+                  ? `Enviando ${disparando.feitos + 1} de ${disparando.total}…`
+                  : `Enviar todos (${pendentes.length} não enviados)`}
               </button>
-            )}
-          </div>
+              {disparando && (
+                <button className="btn btn--vazado" onClick={() => { cancelar.current = true; }}>
+                  Parar
+                </button>
+              )}
+            </div>
+          )}
 
           <div style={{ overflowX: 'auto' }}>
             <table className="tabela">
@@ -544,13 +628,23 @@ export default function Convidados({ convidados }) {
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                           {!criouConta && situacao.valor === 'ativo' && (
                             <>
-                              <button
-                                className="btn btn--vazado btn--pequeno"
-                                disabled={disparando !== null}
-                                onClick={() => enviarUm(c.id)}
-                              >
-                                {c.enviado_em ? 'Reenviar' : 'Enviar'}
-                              </button>
+                              {emailPronto && (
+                                <button
+                                  className="btn btn--vazado btn--pequeno"
+                                  disabled={disparando !== null}
+                                  onClick={() => enviarUm(c.id)}
+                                >
+                                  {c.enviado_em ? 'Reenviar' : 'Enviar'}
+                                </button>
+                              )}
+                              <BotaoEmail
+                                id={c.id}
+                                nome={c.nome}
+                                email={c.email}
+                                link={linkConvite(origem, c.token)}
+                                aoMarcar={marcar}
+                                rotulo={c.enviado_em ? 'Reabrir e-mail' : 'Abrir e-mail'}
+                              />
                               <BotaoCopiar link={linkConvite(origem, c.token)} />
                               <BotaoRevogar id={c.id} aoConcluir={() => router.refresh()} />
                             </>

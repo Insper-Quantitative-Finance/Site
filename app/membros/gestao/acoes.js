@@ -442,6 +442,7 @@ export async function criarConvidado(_estadoAnterior, formData) {
 
   return {
     ok: true,
+    id: convite.id,
     token: convite.token,
     nome: convite.nome,
     email: convite.email,
@@ -612,6 +613,41 @@ async function dispararConvite(admin, id, origem) {
 
   if (!resultado.ok) return erro(resultado.erro);
   return sucesso(`Enviado para ${convite.email}.`);
+}
+
+/**
+ * Marca um convite como enviado à mão.
+ *
+ * Existe porque o envio manual (abrir o Gmail com a mensagem pronta) é o
+ * caminho enquanto o disparo automático não está configurado — e sem registrar
+ * nada, uma turma de 60 vira "de quem eu já mandei?". Grava o mesmo campo do
+ * envio automático, então a tabela e o contador de pendentes não precisam
+ * saber por qual caminho o convite saiu.
+ *
+ * Não envia nada: é bookkeeping. Quem garante que a mensagem saiu é você, no
+ * Gmail — e dá para clicar de novo para reabrir a mensagem a qualquer momento.
+ */
+export async function marcarConviteEnviado(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  if (!id) return erro('Convite não informado.');
+
+  const { error } = await criarClienteAdmin()
+    .from('convites')
+    .update({ enviado_em: new Date().toISOString(), erro_envio: null })
+    .eq('id', id);
+
+  if (error) return erro(`Não foi possível marcar: ${error.message}`);
+
+  await registrar(ator, 'marcar_convite_enviado', 'convites', id, null);
+  revalidatePath('/membros/gestao/usuarios');
+  return sucesso('Marcado como enviado.');
 }
 
 /**

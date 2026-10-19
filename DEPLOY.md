@@ -45,8 +45,9 @@ chave** no painel do Supabase.
    | `INSTAGRAM_ACCESS_TOKEN` | token de longa duração da Graph API (opcional) |
    | `INSTAGRAM_USER_ID` | só no fluxo de Facebook Login; senão, vazio |
    | `CRON_SECRET` | gere com `openssl rand -hex 32` |
-   | `RESEND_API_KEY` | resend.com → API Keys (`re_…`); só para enviar convites |
-   | `EMAIL_REMETENTE` | `IQF <convites@seudominio.com>`, com o domínio verificado no Resend |
+   | `GMAIL_USER` | o Gmail da liga (`insperqfc@gmail.com`); só para enviar convites |
+   | `GMAIL_APP_PASSWORD` | Conta Google → Segurança → Senhas de app (16 caracteres) |
+   | `EMAIL_NOME` | nome exibido na caixa de entrada; vazio usa "Insper Quantitative Finance" |
 
    O Supabase renomeou as chaves: a antiga `anon` virou `publishable` e a
    `service_role` virou `secret`. O código aceita os dois nomes
@@ -62,12 +63,22 @@ chave** no painel do Supabase.
    As três do Instagram são opcionais: sem elas o site sobe normalmente e a
    seção de eventos fica sem posts.
 
-   As duas do Resend também são opcionais, mas sem elas o disparo de convites
-   por e-mail falha (a tela de usuários avisa). Enquanto não estiverem
-   configuradas, dá para importar a planilha e copiar os links pessoais à mão.
-   Sem verificar um domínio no Resend, a API só aceita `onboarding@resend.dev`
-   como remetente e só entrega para o e-mail dono da conta — serve para testar,
-   não para convidar a turma.
+   As do Gmail também são opcionais: sem elas convidar continua funcionando —
+   o link pessoal sai na tela, com um botão que abre sua própria caixa de
+   e-mail com a mensagem escrita — e só o disparo em lote fica indisponível.
+
+   A senha de app exige **verificação em duas etapas** ligada na conta, e não
+   é a senha normal: essa o SMTP do Gmail recusa. Se vazar, dá para revogar só
+   ela, sem mexer na senha da conta.
+
+   O limite do Gmail é de cerca de **500 destinatários por dia** numa conta
+   comum. Uma turma cabe com folga. O "Enviar todos" espera 600 ms entre os
+   disparos, o que também mantém o ritmo longe do que o Gmail considera abuso.
+
+   Mandar de um domínio da liga (`convites@iqf.com.br`) exigiria registrar o
+   domínio e verificá-lo por DNS num serviço de entrega. Se um dia isso
+   existir, trocar é reescrever só `lib/email.js` — o resto do código só
+   conhece `enviarEmail()`.
 
 4. **Deploy.** A partir daí, todo push na `main` publica sozinho, e todo pull
    request ganha uma URL de preview.
