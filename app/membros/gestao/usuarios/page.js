@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { CARGOS, ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
-import { DOMINIO_PERMITIDO } from '@/lib/convites';
 import { emailConfigurado } from '@/lib/email';
 import Convidados from './Convidados';
 import Convites from './Convites';
@@ -42,23 +41,19 @@ export default async function PaginaUsuarios() {
     <div style={{ display: 'grid', gap: 40 }}>
       <div>
         <div className="eyebrow" style={{ marginBottom: 16 }}>Gestão</div>
-        <h1 style={{ fontSize: 38, lineHeight: 1.1, marginBottom: 12 }}>Usuários</h1>
-        <p className="p-corpo" style={{ maxWidth: '62ch', margin: 0 }}>
-          Adicione trainees e membros — um a um ou por planilha —, ajuste cargos e desative quem saiu da liga.
-          Pede só nome e e-mail <strong>@{DOMINIO_PERMITIDO}</strong>, o único domínio que pode ter conta aqui; a
-          senha quem escolhe é a própria pessoa, no link que recebe. Senhas não aparecem nesta tela e não podem ser
-          editadas por ninguém além do dono da conta — quando alguém esquecer, envie o link de redefinição.
-        </p>
+        <h1 style={{ fontSize: 38, lineHeight: 1.1, marginBottom: 0 }}>Usuários</h1>
       </div>
 
       {!emailConfigurado() && (
-        <div className="aviso aviso--erro" style={{ margin: 0 }}>
-          O envio de e-mail não está configurado (falta <code>RESEND_API_KEY</code> no ambiente do servidor). Dá para
-          importar a planilha e gerar os links, mas o disparo vai falhar — use “Copiar link” até configurar.
+        <div className="aviso" style={{ margin: 0, borderColor: 'var(--linha-forte)', color: 'var(--texto-3)' }}>
+          O disparo automático está desligado, mas convidar funciona normalmente:{' '}
+          <strong>Abrir e-mail</strong> abre o Gmail numa aba nova com a mensagem pronta e já marca o convite como
+          enviado — você só confere e aperta Enviar. Para disparar a turma inteira de uma vez, configure{' '}
+          <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> no servidor (veja <code>DEPLOY.md</code>).
         </div>
       )}
 
-      <Convidados convidados={convidados} />
+      <Convidados convidados={convidados} emailPronto={emailConfigurado()} />
 
       <Convites convites={links} />
 
