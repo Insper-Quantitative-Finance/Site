@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
 import { criarUsuario, editarUsuario, enviarRedefinicaoSenha } from '@/app/membros/gestao/acoes';
+import { DOMINIO_PERMITIDO } from '@/lib/convites';
 import { CARGOS_LISTA, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
 
 function FormularioNovo({ ator, aoFechar }) {
@@ -17,21 +18,25 @@ function FormularioNovo({ ator, aoFechar }) {
 
   return (
     <form action={acao} className="painel" style={{ display: 'grid', gap: 20 }}>
-      <h2 style={{ fontSize: 22, margin: 0 }}>Novo usuário</h2>
+      <div>
+        <h2 style={{ fontSize: 22, margin: '0 0 6px' }}>Novo usuário</h2>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
+          Cria a conta já pronta, com uma senha que você define e repassa. Para entrar alguém pedindo só nome e
+          e-mail — sem combinar senha por mensagem —, use <strong>Adicionar pessoas</strong> no começo da página.
+        </p>
+      </div>
       <Feedback estado={estado} />
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div className="campo">
           <label htmlFor="novo-nome">Nome completo</label>
           <input id="novo-nome" name="nome" required />
         </div>
         <div className="campo">
           <label htmlFor="novo-email">E-mail</label>
-          <input id="novo-email" name="email" type="email" required />
+          <input id="novo-email" name="email" type="email" required placeholder={`nome@${DOMINIO_PERMITIDO}`} />
+          <div className="ajuda">Só e-mail @{DOMINIO_PERMITIDO}.</div>
         </div>
-      </div>
-
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <div className="campo">
           <label htmlFor="novo-cargo">Cargo</label>
           <select id="novo-cargo" name="cargo" defaultValue="trainee">
@@ -40,20 +45,29 @@ function FormularioNovo({ ator, aoFechar }) {
             ))}
           </select>
         </div>
-        <div className="campo">
-          <label htmlFor="novo-area">Frente de trabalho</label>
-          <input id="novo-area" name="area" placeholder="Projetos, Capacitações…" />
-        </div>
-        <div className="campo">
-          <label htmlFor="novo-turma">Turma</label>
-          <input id="novo-turma" name="turma" placeholder="2026.1" />
-        </div>
       </div>
 
-      <div className="campo">
-        <label htmlFor="novo-linkedin">LinkedIn</label>
-        <input id="novo-linkedin" name="linkedin" type="url" placeholder="https://www.linkedin.com/in/…" />
-      </div>
+      {/* Frente, turma e LinkedIn fora do caminho: a própria pessoa preenche
+          em "Minha conta", e a gestão edita depois na lista. */}
+      <details>
+        <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--texto-3)' }}>
+          Campos opcionais (frente, turma, LinkedIn)
+        </summary>
+        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: 20 }}>
+          <div className="campo">
+            <label htmlFor="novo-area">Frente de trabalho</label>
+            <input id="novo-area" name="area" placeholder="Projetos, Capacitações…" />
+          </div>
+          <div className="campo">
+            <label htmlFor="novo-turma">Turma</label>
+            <input id="novo-turma" name="turma" placeholder="2026.1" />
+          </div>
+          <div className="campo">
+            <label htmlFor="novo-linkedin">LinkedIn</label>
+            <input id="novo-linkedin" name="linkedin" type="url" placeholder="https://www.linkedin.com/in/…" />
+          </div>
+        </div>
+      </details>
 
       <div className="campo">
         <label htmlFor="novo-senha">Senha inicial</label>

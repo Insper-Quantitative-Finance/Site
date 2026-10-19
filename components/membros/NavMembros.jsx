@@ -6,14 +6,16 @@ import { usePathname } from 'next/navigation';
 const LINKS_BASE = [
   { href: '/membros', label: 'Início' },
   { href: '/membros/trainee', label: 'Trainee' },
+  { href: '/membros/projetos', label: 'Projetos', geral: true },
   { href: '/membros/quadro', label: 'Quadro de membros', geral: true },
   { href: '/membros/materiais', label: 'Materiais', geral: true },
   { href: '/membros/conta', label: 'Minha conta' },
 ];
 
+// Projetos não está aqui: a aba "Projetos" é de todo membro efetivado, e
+// dentro dela o que é restrito (vitrine, equipe) aparece conforme o cargo.
 const LINKS_GESTAO = [
   { href: '/membros/gestao/usuarios', label: 'Usuários' },
-  { href: '/membros/gestao/projetos', label: 'Projetos do site' },
 ];
 
 export default function NavMembros({ gestao, areaGeral = true }) {

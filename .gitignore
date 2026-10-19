@@ -8,3 +8,6 @@ out
 # Handouts do trainee: o HTML vive no bucket privado, não aqui. Este
 # repositório é público — ver conteudo/handouts/README.md.
 conteudo/handouts/*.html
+
+# Cache do CLI do Supabase.
+supabase/.temp

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { CARGOS, ehGestao } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
+import { DOMINIO_PERMITIDO } from '@/lib/convites';
 import { emailConfigurado } from '@/lib/email';
 import Convidados from './Convidados';
 import Convites from './Convites';
@@ -43,9 +44,10 @@ export default async function PaginaUsuarios() {
         <div className="eyebrow" style={{ marginBottom: 16 }}>Gestão</div>
         <h1 style={{ fontSize: 38, lineHeight: 1.1, marginBottom: 12 }}>Usuários</h1>
         <p className="p-corpo" style={{ maxWidth: '62ch', margin: 0 }}>
-          Cadastre novos membros, ajuste cargos e desative quem saiu da liga. Senhas não aparecem aqui e não podem ser
-          editadas por ninguém além do próprio dono da conta — quando alguém esquecer a senha, envie o link de
-          redefinição.
+          Adicione trainees e membros — um a um ou por planilha —, ajuste cargos e desative quem saiu da liga.
+          Pede só nome e e-mail <strong>@{DOMINIO_PERMITIDO}</strong>, o único domínio que pode ter conta aqui; a
+          senha quem escolhe é a própria pessoa, no link que recebe. Senhas não aparecem nesta tela e não podem ser
+          editadas por ninguém além do dono da conta — quando alguém esquecer, envie o link de redefinição.
         </p>
       </div>
 
