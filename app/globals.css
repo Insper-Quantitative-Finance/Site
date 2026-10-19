@@ -332,3 +332,73 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   html { scroll-behavior: auto; }
   .photo:hover img { transform: none; }
 }
+
+/* ====================================================================
+   Edição inline (área de membros → projetos)
+
+   O campo não parece um campo até que se chegue perto dele: fundo e borda
+   só aparecem no hover/foco. É o que deixa a página legível como documento
+   em vez de virar um formulário gigante de caixas vazias.
+   ==================================================================== */
+.inline-edit {
+  cursor: text;
+  border-radius: 2px;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.inline-edit:hover {
+  background: rgba(242, 242, 240, 0.05);
+  border-color: var(--linha-forte) !important;
+}
+
+.inline-edit:focus-visible {
+  outline: none;
+  border-color: var(--azul) !important;
+  background: var(--preto);
+}
+
+/* select e input[type=date] abrem um menu: o cursor tem de dizer isso. */
+select.inline-edit,
+input[type='date'].inline-edit { cursor: pointer; }
+
+/* Esconde o ícone nativo do date até o hover — ele polui a leitura quando
+   a data é só mais um dado no meio do texto. */
+input[type='date'].inline-edit::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
+input[type='date'].inline-edit:hover::-webkit-calendar-picker-indicator,
+input[type='date'].inline-edit:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+}
+
+/* Botão de excluir/ação secundária: discreto até o hover, e só então
+   vermelho — excluir não pode ser o elemento mais chamativo da linha. */
+.btn-icone {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--texto-3);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.btn-icone:hover:not(:disabled) {
+  color: #E8A0A0;
+  border-color: rgba(232, 160, 160, 0.4);
+}
+
+.btn-icone:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Cartão da lista de projetos: a borda azul no hover indica que é um link,
+   já que o cartão inteiro é clicável e não tem sublinhado. */
+.cartao-projeto { transition: border-color 140ms ease; }
+.cartao-projeto:hover { border-color: var(--azul); }
+
+@media (prefers-reduced-motion: reduce) {
+  .inline-edit, .btn-icone, .cartao-projeto { transition: none; }
+}

@@ -5,7 +5,13 @@ import { useEffect, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
 import { criarConvite, revogarConvite } from '@/app/membros/gestao/acoes';
-import { linkConvite, situacaoConvite } from '@/lib/convites';
+import {
+  CARGOS_CONVITE,
+  DOMINIO_PERMITIDO,
+  linkConvite,
+  rotuloCargoConvite,
+  situacaoConvite,
+} from '@/lib/convites';
 
 /** Copia para a área de transferência com um fallback para http/navegador antigo. */
 async function copiar(texto) {
@@ -56,8 +62,8 @@ function FormularioNovoConvite({ origem, aoFechar }) {
     <form action={acao} className="painel" style={{ display: 'grid', gap: 20 }}>
       <h3 style={{ fontSize: 20, margin: 0 }}>Novo link de convite</h3>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
-        Todo convite cria conta de <strong>trainee</strong>. O cargo não é escolhido aqui nem pelo link — para
-        promover alguém a membro ou diretoria, edite o usuário depois de ele entrar.
+        O cargo é fixado aqui, na criação do link, e quem clica não escolhe nada. Só trainee e membro: para
+        diretoria ou presidência, promova o usuário depois de ele entrar.
       </p>
       <Feedback estado={estado} />
 
@@ -70,39 +76,28 @@ function FormularioNovoConvite({ origem, aoFechar }) {
 
       <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div className="campo">
+          <label htmlFor="cv-link-cargo">Cria conta de</label>
+          <select id="cv-link-cargo" name="cargo" defaultValue="trainee">
+            {CARGOS_CONVITE.map((c) => (
+              <option key={c.valor} value={c.valor}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="campo">
           <label htmlFor="cv-rotulo">Nome do convite</label>
-          <input id="cv-rotulo" name="rotulo" required placeholder="Trainees 2026.1" />
-        </div>
-        <div className="campo">
-          <label htmlFor="cv-turma">Turma</label>
-          <input id="cv-turma" name="turma" placeholder="2026.1" />
-          <div className="ajuda">Preenchida automaticamente no perfil de quem aceitar.</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        <div className="campo">
-          <label htmlFor="cv-area">Frente de trabalho</label>
-          <input id="cv-area" name="area" placeholder="Projetos, Capacitações…" />
+          <input id="cv-rotulo" name="rotulo" placeholder="Trainees 2026.1" />
+          <div className="ajuda">Opcional — só para você reconhecer o link na tabela.</div>
         </div>
         <div className="campo">
           <label htmlFor="cv-usos">Limite de cadastros</label>
           <input id="cv-usos" name="usos_max" type="number" min={1} placeholder="ilimitado" />
           <div className="ajuda">Vazio = sem limite. Use o tamanho da turma para não sobrar vaga.</div>
         </div>
-        <div className="campo">
-          <label htmlFor="cv-validade">Validade (dias)</label>
-          <input id="cv-validade" name="validade_dias" type="number" min={1} defaultValue={14} />
-        </div>
       </div>
 
-      <div className="campo">
-        <label htmlFor="cv-dominio">Restringir ao domínio de e-mail</label>
-        <input id="cv-dominio" name="dominio_email" placeholder="al.insper.edu.br" />
-        <div className="ajuda">
-          Vazio aceita qualquer e-mail. Com domínio preenchido, só e-mails desse domínio conseguem se cadastrar —
-          é a melhor trava caso o link vaze.
-        </div>
+      <div className="aviso" style={{ borderColor: 'var(--linha-forte)', color: 'var(--texto-3)', margin: 0 }}>
+        Só e-mails @{DOMINIO_PERMITIDO} conseguem se cadastrar — é a trava que vale se o link vazar. O convite não
+        tem prazo: use <strong>Revogar</strong> quando quiser desligá-lo.
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -139,10 +134,10 @@ export default function Convites({ convites }) {
     <section style={{ display: 'grid', gap: 24 }}>
       <div style={{ display: 'flex', gap: 16, alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ fontSize: 24, margin: '0 0 6px' }}>Convites de trainee</h2>
+          <h2 style={{ fontSize: 24, margin: '0 0 6px' }}>Links de convite para turma</h2>
           <p style={{ margin: 0, fontSize: 14, color: 'var(--texto-3)', maxWidth: '62ch' }}>
-            Gere um link, mande para a turma e cada trainee cria a própria conta com e-mail e senha. Ninguém
-            precisa combinar senha por mensagem.
+            Um link, vários cadastros: mande no grupo e cada pessoa cria a própria conta com e-mail e senha. Para
+            convidar gente nominalmente (e saber quem já entrou), use a seção acima.
           </p>
         </div>
         <button className="btn btn--solido" onClick={() => setCriando((c) => !c)}>
@@ -160,8 +155,8 @@ export default function Convites({ convites }) {
             <thead>
               <tr>
                 <th>Convite</th>
+                <th>Cargo</th>
                 <th>Cadastros</th>
-                <th>Validade</th>
                 <th>Situação</th>
                 <th />
               </tr>
@@ -175,15 +170,11 @@ export default function Convites({ convites }) {
                     <td style={{ color: 'var(--osso)' }}>
                       {c.rotulo}
                       <div style={{ fontSize: 12, color: 'var(--texto-3)' }}>
-                        {[c.turma && `turma ${c.turma}`, c.dominio_email && `@${c.dominio_email}`]
-                          .filter(Boolean)
-                          .join(' · ') || 'sem restrição de domínio'}
+                        @{c.dominio_email ?? DOMINIO_PERMITIDO}
                       </div>
                     </td>
+                    <td><span className="selo">{rotuloCargoConvite(c.cargo)}</span></td>
                     <td>{c.usos}{c.usos_max != null ? ` / ${c.usos_max}` : ''}</td>
-                    <td>
-                      {c.expira_em ? new Date(c.expira_em).toLocaleDateString('pt-BR') : 'sem prazo'}
-                    </td>
                     <td>
                       <span className={`selo ${ativo ? '' : 'selo--inativo'}`}>{situacao.label}</span>
                     </td>

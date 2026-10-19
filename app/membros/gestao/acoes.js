@@ -3,7 +3,15 @@
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { CARGOS, cargosAtribuiveis, ehGestao, podeAlterarCargo, podeEditarUsuario, rotuloCargo } from '@/lib/cargos';
-import { emailPermitido, linkConvite, situacaoConvite } from '@/lib/convites';
+import {
+  DOMINIO_PERMITIDO,
+  MOTIVO_DOMINIO,
+  cargoConvite,
+  emailPermitido,
+  linkConvite,
+  rotuloCargoConvite,
+  situacaoConvite,
+} from '@/lib/convites';
 import { enviarEmail, montarConvite } from '@/lib/email';
 import { acharHandout, comoInstante } from '@/lib/handouts';
 import { lerConvidados } from '@/lib/planilha';
@@ -65,6 +73,8 @@ export async function criarUsuario(_estadoAnterior, formData) {
   const senha = formData.get('senha');
 
   if (!email || !nome) return erro('Nome e e-mail são obrigatórios.');
+  // A mesma trava do convite: não há caminho para criar conta fora do domínio.
+  if (!emailPermitido(email)) return erro(MOTIVO_DOMINIO);
   if (!CARGOS[cargo]) return erro('Cargo inválido.');
   if (typeof senha !== 'string' || senha.length < 8) {
     return erro('A senha inicial precisa ter pelo menos 8 caracteres.');
@@ -201,16 +211,29 @@ export async function enviarRedefinicaoSenha(_estadoAnterior, formData) {
 }
 
 /* ==================================================================
-   CONVITES DE TRAINEE
+   CONVITES (TRAINEE E MEMBRO)
    ================================================================== */
 
 /**
- * Gera um link de cadastro para trainees.
+ * O ator pode emitir convite para este cargo?
  *
- * Não recebe cargo: o convite cria trainee e só trainee — o banco tem um
- * CHECK que recusa qualquer outro valor, e a action pública que consome o
- * token nem lê cargo do formulário. Assim um link vazado no WhatsApp da
- * turma, no pior caso, cria um trainee a mais — nunca um diretor.
+ * Duas travas em série: cargoConvite() limita a trainee|membro (diretoria e
+ * presidência não se convidam, só se promovem), e cargosAtribuiveis() repete
+ * aqui a mesma regra que vale para criar usuário à mão. O banco é a terceira,
+ * pelo CHECK da coluna.
+ */
+function cargoConvidavel(cargoAtor, pedido) {
+  const cargo = cargoConvite(pedido);
+  return cargosAtribuiveis(cargoAtor).some((c) => c.valor === cargo) ? cargo : null;
+}
+
+/**
+ * Gera um link de cadastro de turma (um token, N cadastros).
+ *
+ * O cargo é fixado AQUI, na linha do convite, por quem cria o link — a action
+ * pública que consome o token nem lê cargo do formulário. Assim um link vazado
+ * no WhatsApp da turma, no pior caso, cria um trainee (ou membro) a mais —
+ * nunca um diretor.
  */
 export async function criarConvite(_estadoAnterior, formData) {
   let ator;
@@ -220,16 +243,14 @@ export async function criarConvite(_estadoAnterior, formData) {
     return erro(e.message);
   }
 
-  const rotulo = texto(formData, 'rotulo');
-  if (!rotulo) return erro('Dê um nome ao convite (ex.: “Trainees 2026.1”).');
+  const cargo = cargoConvidavel(ator.cargo, texto(formData, 'cargo'));
+  if (!cargo) return erro('Convite só cria trainee ou membro; outros cargos vêm por promoção.');
+
+  const rotulo = texto(formData, 'rotulo') || `${rotuloCargoConvite(cargo)}s ${new Date().getFullYear()}`;
 
   // Vazio/0 = ilimitado; a coluna aceita null e o CHECK recusa zero.
   const brutoUsos = formData.get('usos_max');
   const usosMax = Number(brutoUsos) > 0 ? Number(brutoUsos) : null;
-
-  const dias = Number(formData.get('validade_dias'));
-  const expiraEm =
-    dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : null;
 
   // 32 bytes: adivinhar um token por força bruta é inviável, e ele é a
   // única coisa que separa um estranho de uma conta na área de membros.
@@ -240,12 +261,11 @@ export async function criarConvite(_estadoAnterior, formData) {
     .insert({
       token,
       rotulo,
-      cargo: 'trainee',
-      turma: texto(formData, 'turma'),
-      area: texto(formData, 'area'),
-      dominio_email: texto(formData, 'dominio_email')?.toLowerCase().replace(/^@/, '') ?? null,
+      cargo,
+      // Gravado na linha, não pedido no formulário: é o mesmo domínio para
+      // todo mundo, e a action pública revalida por emailPermitido().
+      dominio_email: DOMINIO_PERMITIDO,
       usos_max: usosMax,
-      expira_em: expiraEm,
       criado_por: ator.id,
     })
     .select('token')
@@ -253,9 +273,13 @@ export async function criarConvite(_estadoAnterior, formData) {
 
   if (error) return erro(`Não foi possível criar o convite: ${error.message}`);
 
-  await registrar(ator, 'criar_convite', 'convites', null, { rotulo, usosMax });
+  await registrar(ator, 'criar_convite', 'convites', null, { rotulo, cargo, usosMax });
   revalidatePath('/membros/gestao/usuarios');
-  return { ok: true, mensagem: 'Convite criado. Copie o link e envie aos trainees.', token: data.token };
+  return {
+    ok: true,
+    mensagem: `Convite de ${rotuloCargoConvite(cargo).toLowerCase()} criado. Copie o link e envie à turma.`,
+    token: data.token,
+  };
 }
 
 /** Desliga um link já enviado. Quem já criou a conta continua com ela. */
@@ -283,8 +307,150 @@ export async function revogarConvite(_estadoAnterior, formData) {
 }
 
 /* ==================================================================
-   CONVITES PESSOAIS EM LOTE (planilha)
+   CONVITES PESSOAIS (um a um ou por planilha)
+
+   Um convite pessoal é um token amarrado a um e-mail, com usos_max = 1.
+   É o caminho para entrar gente no sistema pedindo só nome e e-mail: a
+   senha quem define é a própria pessoa, no link que recebe.
    ================================================================== */
+
+/**
+ * Insere um convite pessoal por pessoa aprovada, rechecando o banco antes.
+ *
+ * A recheca não é paranoia: entre a prévia da planilha e o clique alguém pode
+ * ter criado a conta — ou a mesma planilha pode ter sido importada duas vezes.
+ * O índice único de convite pendente recusaria o insert do lote INTEIRO, e aí
+ * uma linha repetida derrubaria a turma toda.
+ *
+ * Convite pessoal não tem prazo: ele vale para um e-mail e para um cadastro
+ * só, e a gestão desliga pelo botão Revogar. Prazo aqui só criaria o caso de
+ * "mandei o link e a pessoa demorou uma semana para abrir".
+ *
+ * Devolve { convites, criados, ignoradas } ou { erro }.
+ */
+async function inserirConvitesPessoais(admin, { pessoas, cargo, rotulo, lote, atorId }) {
+  const emails = pessoas.map((p) => String(p.email).toLowerCase());
+
+  const [{ data: perfis }, { data: pendentes }] = await Promise.all([
+    admin.from('profiles').select('email').in('email', emails),
+    admin.from('convites').select('email').in('email', emails).eq('revogado', false),
+  ]);
+  const bloqueados = new Set([
+    ...(perfis ?? []).map((p) => p.email.toLowerCase()),
+    ...(pendentes ?? []).map((c) => c.email?.toLowerCase()),
+  ]);
+
+  const novas = pessoas.filter(
+    (p) =>
+      p.email &&
+      p.nome &&
+      emailPermitido(String(p.email).toLowerCase()) &&
+      !bloqueados.has(String(p.email).toLowerCase()),
+  );
+  const ignoradas = pessoas.length - novas.length;
+
+  if (novas.length === 0) {
+    return { erro: 'Nenhuma pessoa elegível: já têm conta, convite pendente ou e-mail fora do domínio.' };
+  }
+
+  const { data: criados, error } = await admin
+    .from('convites')
+    .insert(
+      novas.map((p) => ({
+        // 32 bytes: adivinhar um token por força bruta é inviável, e ele é a
+        // única coisa que separa um estranho de uma conta na área de membros.
+        token: randomBytes(32).toString('base64url'),
+        rotulo,
+        cargo,
+        nome: String(p.nome).trim(),
+        email: String(p.email).toLowerCase(),
+        dominio_email: DOMINIO_PERMITIDO,
+        lote,
+        usos_max: 1, // convite pessoal: uma conta, e acabou
+        criado_por: atorId,
+      })),
+    )
+    .select('id, token, nome, email');
+
+  if (error) return { erro: `Não foi possível criar os convites: ${error.message}` };
+
+  return { convites: criados, criados: criados.length, ignoradas };
+}
+
+/**
+ * Convida UMA pessoa: nome, e-mail, e nada mais.
+ *
+ * Existe ao lado da planilha porque uma pessoa só é o caso comum fora do
+ * processo seletivo (alguém que entrou no meio do semestre), e passar por
+ * "cole a planilha → leia → revise → crie o lote" para uma linha é atrito puro.
+ *
+ * Devolve o link pronto para copiar e, se pedido, já dispara o e-mail — são as
+ * duas formas de entregar o convite, e qual serve depende de a pessoa estar na
+ * sua frente ou não.
+ */
+export async function criarConvidado(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const nome = texto(formData, 'nome');
+  const email = texto(formData, 'email')?.toLowerCase();
+  if (!nome || !email) return erro('Preencha nome e e-mail.');
+  if (!emailPermitido(email)) return erro(MOTIVO_DOMINIO);
+
+  const cargo = cargoConvidavel(ator.cargo, texto(formData, 'cargo'));
+  if (!cargo) return erro('Convite só cria trainee ou membro; outros cargos vêm por promoção.');
+
+  const admin = criarClienteAdmin();
+
+  const resultado = await inserirConvitesPessoais(admin, {
+    pessoas: [{ nome, email }],
+    cargo,
+    rotulo: `${rotuloCargoConvite(cargo)}s avulsos`,
+    lote: null, // avulso: não pertence a nenhum lote de planilha
+    atorId: ator.id,
+  });
+
+  if (resultado.erro) {
+    // Com uma pessoa só, "nenhuma pessoa elegível" não diz nada; nomeia o caso.
+    return erro(
+      resultado.erro.startsWith('Nenhuma')
+        ? `${email} já tem conta ou um convite pendente.`
+        : resultado.erro,
+    );
+  }
+
+  const convite = resultado.convites[0];
+  await registrar(ator, 'criar_convidado', 'convites', convite.id, { email, cargo });
+
+  // Enviar é opcional e no mesmo passo: com a caixa marcada, criar o convite
+  // e avisar a pessoa é um clique. Falha de envio não desfaz o convite — o
+  // link continua na tela para copiar e mandar na mão.
+  let envio = null;
+  if (formData.get('enviar_email') === 'on') {
+    const origem = texto(formData, 'origem');
+    envio = origem
+      ? await dispararConvite(admin, convite.id, origem)
+      : erro('Não consegui descobrir o endereço do site para montar o link.');
+    if (envio.ok) await registrar(ator, 'enviar_convite', 'convites', convite.id, { email });
+  }
+
+  revalidatePath('/membros/gestao/usuarios');
+
+  return {
+    ok: true,
+    token: convite.token,
+    nome: convite.nome,
+    email: convite.email,
+    envio,
+    mensagem:
+      `Convite de ${rotuloCargoConvite(cargo).toLowerCase()} criado para ${nome}.` +
+      (envio?.ok ? ` E-mail enviado para ${email}.` : ''),
+  };
+}
 
 /**
  * Lê a planilha e devolve a prévia. NÃO escreve nada.
@@ -305,7 +471,6 @@ export async function prepararConvidados(_estadoAnterior, formData) {
     return erro('Não encontrei nenhuma linha. Cole a planilha (nome e e-mail) ou escolha um arquivo CSV.');
   }
 
-  const dominio = texto(formData, 'dominio_email')?.toLowerCase().replace(/^@/, '') ?? null;
   const emails = linhas.filter((l) => l.email).map((l) => l.email);
   const admin = criarClienteAdmin();
 
@@ -321,8 +486,8 @@ export async function prepararConvidados(_estadoAnterior, formData) {
 
   const revisadas = linhas.map((l) => {
     if (l.erro) return { ...l, situacao: 'erro' };
-    if (!emailPermitido(l.email, dominio)) {
-      return { ...l, situacao: 'erro', erro: `Fora do domínio @${dominio}.` };
+    if (!emailPermitido(l.email)) {
+      return { ...l, situacao: 'erro', erro: `Não é um e-mail @${DOMINIO_PERMITIDO}.` };
     }
     const perfil = jaTemConta.get(l.email);
     if (perfil) {
@@ -361,8 +526,14 @@ export async function criarConvitesLote(_estadoAnterior, formData) {
     return erro(e.message);
   }
 
-  const rotulo = texto(formData, 'rotulo');
-  if (!rotulo) return erro('Dê um nome ao lote (ex.: “Trainees 2026.1”).');
+  const cargo = cargoConvidavel(ator.cargo, texto(formData, 'cargo'));
+  if (!cargo) return erro('Convite só cria trainee ou membro; outros cargos vêm por promoção.');
+
+  // Sem nome de lote, o cargo e a data dão um rótulo bom o bastante — o campo
+  // existe para a gestão se achar na tabela depois, não para ser obrigatório.
+  const rotulo =
+    texto(formData, 'rotulo') ||
+    `${rotuloCargoConvite(cargo)}s ${new Date().toLocaleDateString('pt-BR')}`;
 
   // O cliente manda de volta a prévia aprovada; o servidor não confia nela
   // como verdade sobre o banco — só como seleção de quem enviar.
@@ -376,89 +547,43 @@ export async function criarConvitesLote(_estadoAnterior, formData) {
     return erro('Nenhuma pessoa selecionada.');
   }
 
-  const dias = Number(formData.get('validade_dias'));
-  const expiraEm = dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : null;
-  const turma = texto(formData, 'turma');
-  const area = texto(formData, 'area');
+  const resultado = await inserirConvitesPessoais(criarClienteAdmin(), {
+    pessoas: selecionadas,
+    cargo,
+    rotulo,
+    lote: `${rotulo} · ${new Date().toISOString().slice(0, 10)}`,
+    atorId: ator.id,
+  });
 
-  const admin = criarClienteAdmin();
+  if (resultado.erro) return erro(resultado.erro);
 
-  // Recheca no banco, agora: entre a prévia e o clique alguém pode ter
-  // criado a conta (ou você pode ter importado a planilha duas vezes).
-  const emails = selecionadas.map((l) => String(l.email).toLowerCase());
-  const [{ data: perfis }, { data: pendentes }] = await Promise.all([
-    admin.from('profiles').select('email').in('email', emails),
-    admin.from('convites').select('email').in('email', emails).eq('revogado', false),
-  ]);
-  const bloqueados = new Set([
-    ...(perfis ?? []).map((p) => p.email.toLowerCase()),
-    ...(pendentes ?? []).map((c) => c.email?.toLowerCase()),
-  ]);
-
-  const novas = selecionadas.filter((l) => l.email && l.nome && !bloqueados.has(String(l.email).toLowerCase()));
-  const ignoradas = selecionadas.length - novas.length;
-
-  if (novas.length === 0) {
-    return erro('Todas as pessoas selecionadas já têm conta ou convite pendente.');
-  }
-
-  const lote = `${rotulo} · ${new Date().toISOString().slice(0, 10)}`;
-
-  const { data: criados, error } = await admin
-    .from('convites')
-    .insert(
-      novas.map((l) => ({
-        token: randomBytes(32).toString('base64url'),
-        rotulo,
-        cargo: 'trainee',
-        nome: String(l.nome).trim(),
-        email: String(l.email).toLowerCase(),
-        turma,
-        area,
-        lote,
-        usos_max: 1, // convite pessoal: uma conta, e acabou
-        expira_em: expiraEm,
-        criado_por: ator.id,
-      })),
-    )
-    .select('id');
-
-  if (error) return erro(`Não foi possível criar os convites: ${error.message}`);
-
-  await registrar(ator, 'criar_convites_lote', 'convites', null, { rotulo, total: criados.length });
+  await registrar(ator, 'criar_convites_lote', 'convites', null, {
+    rotulo,
+    cargo,
+    total: resultado.criados,
+  });
   revalidatePath('/membros/gestao/usuarios');
 
   return {
     ok: true,
-    ids: criados.map((c) => c.id),
+    ids: resultado.convites.map((c) => c.id),
     mensagem:
-      `${criados.length} convite(s) criados` +
-      (ignoradas > 0 ? `; ${ignoradas} ignorado(s) por já ter conta ou convite.` : '.') +
+      `${resultado.criados} convite(s) de ${rotuloCargoConvite(cargo).toLowerCase()} criados` +
+      (resultado.ignoradas > 0
+        ? `; ${resultado.ignoradas} ignorado(s) por já ter conta, convite pendente ou e-mail fora do domínio.`
+        : '.') +
       ' Agora envie os e-mails.',
   };
 }
 
 /**
- * Envia (ou reenvia) o e-mail de um convite.
+ * Monta e dispara o e-mail de um convite, gravando o resultado na linha.
  *
- * É uma action por pessoa de propósito: o botão "enviar todos" chama esta
- * mesma função em sequência, então reenviar para quem falhou usa exatamente
- * o caminho já testado, e uma caixa postal inválida não derruba o lote.
+ * Separado da action para o convite individual poder criar e enviar num
+ * clique só, sem duplicar a lógica de montagem, de trava de situação nem de
+ * registro do erro de envio.
  */
-export async function enviarConvite(_estadoAnterior, formData) {
-  let ator;
-  try {
-    ator = await exigirGestao();
-  } catch (e) {
-    return erro(e.message);
-  }
-
-  const id = texto(formData, 'id');
-  const origem = texto(formData, 'origem');
-  if (!id) return erro('Convite não informado.');
-  if (!origem) return erro('Não consegui descobrir o endereço do site.');
-
-  const admin = criarClienteAdmin();
+async function dispararConvite(admin, id, origem) {
   const { data: convite } = await admin.from('convites').select('*').eq('id', id).maybeSingle();
 
   if (!convite) return erro('Convite não encontrado.');
@@ -485,151 +610,47 @@ export async function enviarConvite(_estadoAnterior, formData) {
     })
     .eq('id', id);
 
-  revalidatePath('/membros/gestao/usuarios');
-
   if (!resultado.ok) return erro(resultado.erro);
-
-  await registrar(ator, 'enviar_convite', 'convites', id, { email: convite.email });
   return sucesso(`Enviado para ${convite.email}.`);
 }
 
+/**
+ * Envia (ou reenvia) o e-mail de um convite.
+ *
+ * É uma action por pessoa de propósito: o botão "enviar todos" chama esta
+ * mesma função em sequência, então reenviar para quem falhou usa exatamente
+ * o caminho já testado, e uma caixa postal inválida não derruba o lote.
+ */
+export async function enviarConvite(_estadoAnterior, formData) {
+  let ator;
+  try {
+    ator = await exigirGestao();
+  } catch (e) {
+    return erro(e.message);
+  }
+
+  const id = texto(formData, 'id');
+  const origem = texto(formData, 'origem');
+  if (!id) return erro('Convite não informado.');
+  if (!origem) return erro('Não consegui descobrir o endereço do site.');
+
+  const resultado = await dispararConvite(criarClienteAdmin(), id, origem);
+  revalidatePath('/membros/gestao/usuarios');
+
+  if (!resultado.ok) return resultado;
+
+  await registrar(ator, 'enviar_convite', 'convites', id, { id });
+  return resultado;
+}
+
 /* ==================================================================
-   PROJETOS DO SITE
+   PROJETOS
+
+   Projetos saíram daqui. Cadastro, vitrine do site, equipe, deadline,
+   tarefas e anexos vivem todos em /membros/projetos, numa página só por
+   projeto — ter duas telas editando o mesmo registro era o atrito que
+   essa mudança resolveu. As actions estão em app/membros/projetos/acoes.js.
    ================================================================== */
-
-// Os campos ricos chegam como texto e viram JSON: uma linha por item,
-// "Rótulo | texto" para detalhes e "Valor | rótulo" para métricas.
-function linhasParaJson(bruto, chaveA, chaveB) {
-  if (!bruto) return [];
-  return bruto
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((linha) => {
-      const [a, ...resto] = linha.split('|');
-      return { [chaveA]: a.trim(), [chaveB]: resto.join('|').trim() };
-    })
-    .filter((o) => o[chaveA]);
-}
-
-const gerarSlug = (s) =>
-  s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // tira os acentos separados pelo NFD
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60);
-
-export async function salvarProjeto(_estadoAnterior, formData) {
-  let ator;
-  try {
-    ator = await exigirGestao();
-  } catch (e) {
-    return erro(e.message);
-  }
-
-  const id = texto(formData, 'id');
-  const titulo = texto(formData, 'titulo');
-  const resumo = texto(formData, 'resumo');
-  if (!titulo || !resumo) return erro('Título e resumo são obrigatórios.');
-
-  const dados = {
-    titulo,
-    resumo,
-    slug: texto(formData, 'slug') || gerarSlug(titulo),
-    subtitulo: texto(formData, 'subtitulo'),
-    selo: texto(formData, 'selo'),
-    contexto: texto(formData, 'contexto'),
-    ano: texto(formData, 'ano'),
-    parceiro_nome: texto(formData, 'parceiro_nome'),
-    parceiro_logo: texto(formData, 'parceiro_logo'),
-    parceiro_prefixo: texto(formData, 'parceiro_prefixo') || 'Projeto mentorado por',
-    detalhes: linhasParaJson(texto(formData, 'detalhes'), 'rotulo', 'texto'),
-    metricas: linhasParaJson(texto(formData, 'metricas'), 'valor', 'rotulo'),
-    destaque: formData.get('destaque') === 'on',
-    publicado: formData.get('publicado') === 'on',
-    ordem: Number(formData.get('ordem')) || 0,
-  };
-
-  // Paper: link externo OU PDF enviado ao bucket público "papers".
-  // O upload já aconteceu no navegador; aqui só gravamos a referência.
-  const paperTipo = texto(formData, 'paper_tipo') || 'nenhum';
-  if (paperTipo === 'link') {
-    dados.paper_url = texto(formData, 'paper_link');
-    dados.paper_path = null;
-    dados.paper_nome = texto(formData, 'paper_rotulo');
-  } else if (paperTipo === 'arquivo') {
-    const url = texto(formData, 'paper_url');
-    const caminho = texto(formData, 'paper_path');
-    if (!url || !caminho) return erro('Envie o PDF do paper antes de salvar.');
-    dados.paper_url = url;
-    dados.paper_path = caminho;
-    dados.paper_nome = texto(formData, 'paper_nome');
-  } else {
-    dados.paper_url = null;
-    dados.paper_path = null;
-    dados.paper_nome = null;
-  }
-
-  const admin = criarClienteAdmin();
-
-  // Guarda o paper antigo para apagar do Storage se ele foi trocado/removido.
-  let paperAntigo = null;
-  if (id) {
-    const { data } = await admin.from('projetos').select('paper_path').eq('id', id).single();
-    paperAntigo = data?.paper_path ?? null;
-  }
-
-  const { error } = id
-    ? await admin.from('projetos').update(dados).eq('id', id)
-    : await admin.from('projetos').insert(dados);
-
-  if (error) {
-    return erro(
-      error.code === '23505'
-        ? 'Já existe um projeto com esse identificador (slug). Escolha outro.'
-        : `Não foi possível salvar: ${error.message}`,
-    );
-  }
-
-  if (paperAntigo && paperAntigo !== dados.paper_path) {
-    await admin.storage.from('papers').remove([paperAntigo]);
-  }
-
-  await registrar(ator, id ? 'editar_projeto' : 'criar_projeto', 'projetos', id, { titulo });
-  revalidatePath('/membros/gestao/projetos');
-  revalidatePath('/');
-  return sucesso(id ? 'Projeto atualizado.' : 'Projeto criado.');
-}
-
-export async function excluirProjeto(_estadoAnterior, formData) {
-  let ator;
-  try {
-    ator = await exigirGestao();
-  } catch (e) {
-    return erro(e.message);
-  }
-
-  const id = texto(formData, 'id');
-  if (!id) return erro('Projeto não informado.');
-
-  const admin = criarClienteAdmin();
-  const { data: projeto } = await admin.from('projetos').select('paper_path').eq('id', id).single();
-
-  const { error } = await admin.from('projetos').delete().eq('id', id);
-  if (error) return erro(`Não foi possível excluir: ${error.message}`);
-
-  // Não deixa o PDF órfão ocupando espaço no Storage.
-  if (projeto?.paper_path) {
-    await admin.storage.from('papers').remove([projeto.paper_path]);
-  }
-
-  await registrar(ator, 'excluir_projeto', 'projetos', id, null);
-  revalidatePath('/membros/gestao/projetos');
-  revalidatePath('/');
-  return sucesso('Projeto excluído.');
-}
 
 /* ==================================================================
    MATERIAIS DE ESTUDO

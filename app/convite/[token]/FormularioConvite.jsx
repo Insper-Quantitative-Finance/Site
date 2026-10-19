@@ -4,10 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
+import { DOMINIO_PERMITIDO } from '@/lib/convites';
 import { criarClienteNavegador } from '@/lib/supabase/client';
 import { aceitarConvite } from '@/app/convite/acoes';
 
-export default function FormularioConvite({ token, dominio, nome, email }) {
+export default function FormularioConvite({ token, nome, email }) {
   const router = useRouter();
   const [estado, acao] = useFormState(aceitarConvite, null);
   const [entrando, setEntrando] = useState(false);
@@ -83,14 +84,14 @@ export default function FormularioConvite({ token, dominio, nome, email }) {
           autoComplete="email"
           defaultValue={email ?? ''}
           readOnly={Boolean(email)}
-          placeholder={dominio ? `voce@${dominio}` : undefined}
+          placeholder={`voce@${DOMINIO_PERMITIDO}`}
           style={email ? { opacity: 0.7, cursor: 'not-allowed' } : undefined}
         />
-        {email ? (
-          <div className="ajuda">Este convite é pessoal e vale só para este e-mail.</div>
-        ) : (
-          dominio && <div className="ajuda">Este convite aceita apenas e-mails @{dominio}.</div>
-        )}
+        <div className="ajuda">
+          {email
+            ? 'Este convite é pessoal e vale só para este e-mail.'
+            : `Apenas e-mails @${DOMINIO_PERMITIDO}.`}
+        </div>
       </div>
 
       <div className="campo">

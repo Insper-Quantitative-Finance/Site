@@ -4,8 +4,20 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
-import { criarConvitesLote, enviarConvite, prepararConvidados, revogarConvite } from '@/app/membros/gestao/acoes';
-import { linkConvite, situacaoConvite } from '@/lib/convites';
+import {
+  criarConvidado,
+  criarConvitesLote,
+  enviarConvite,
+  prepararConvidados,
+  revogarConvite,
+} from '@/app/membros/gestao/acoes';
+import {
+  CARGOS_CONVITE,
+  DOMINIO_PERMITIDO,
+  linkConvite,
+  rotuloCargoConvite,
+  situacaoConvite,
+} from '@/lib/convites';
 
 const CORES = {
   novo: 'var(--azul)',
@@ -51,10 +63,114 @@ function BotaoCopiar({ link, rotulo = 'Copiar link' }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Uma pessoa por vez: nome e e-mail, e nada mais                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Convida uma pessoa só.
+ *
+ * Dois campos e um botão. O link sai pronto na tela para copiar, e a caixa
+ * "enviar o e-mail agora" cobre o outro caso — a pessoa não está na sua frente.
+ * Nada de turma, frente de trabalho ou validade: o perfil se completa depois,
+ * e o convite vale até alguém usar ou revogar.
+ */
+function Individual({ cargo, origem, aoFechar }) {
+  const router = useRouter();
+  const [estado, acao] = useFormState(criarConvidado, null);
+  const formulario = useRef(null);
+
+  useEffect(() => {
+    if (estado?.ok) router.refresh();
+  }, [estado, router]);
+
+  const titulo = `Adicionar ${rotuloCargoConvite(cargo).toLowerCase()}`;
+
+  // Convite criado: o que importa agora é o link e se o e-mail saiu.
+  if (estado?.ok) {
+    const link = linkConvite(origem, estado.token);
+    return (
+      <div className="painel" style={{ display: 'grid', gap: 16 }}>
+        <h3 style={{ fontSize: 20, margin: 0 }}>{titulo}</h3>
+        <div className="aviso aviso--ok" style={{ margin: 0 }}>{estado.mensagem}</div>
+
+        {estado.envio && !estado.envio.ok && (
+          <div className="aviso aviso--erro" style={{ margin: 0 }}>
+            O convite existe, mas o e-mail não saiu: {estado.envio.erro} Copie o link abaixo e mande na mão.
+          </div>
+        )}
+
+        <div className="campo">
+          <label htmlFor="um-link">Link pessoal de {estado.nome}</label>
+          <input id="um-link" readOnly value={link} onFocus={(e) => e.target.select()} />
+          <div className="ajuda">
+            Vale só para {estado.email} e só para um cadastro. Lá a pessoa põe o nome e escolhe a senha.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <BotaoCopiar link={link} />
+          {/* Fechar remonta o formulário limpo na próxima abertura, que é o
+              caminho para convidar a pessoa seguinte. */}
+          <button type="button" className="btn btn--solido" onClick={aoFechar}>Concluir</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form ref={formulario} action={acao} className="painel" style={{ display: 'grid', gap: 20 }}>
+      <div>
+        <h3 style={{ fontSize: 20, margin: '0 0 6px' }}>{titulo}</h3>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
+          Só nome e e-mail. Sai um link pessoal para copiar — ou já enviado por e-mail — e é lá que a pessoa
+          escolhe a senha dela. Você não precisa combinar senha por mensagem.
+        </p>
+      </div>
+
+      <Feedback estado={estado} />
+
+      {/* Cargo e endereço do site não são escolha de quem preenche: vêm do
+          botão que abriu este formulário e da URL. O servidor revalida o cargo. */}
+      <input type="hidden" name="cargo" value={cargo} />
+      <input type="hidden" name="origem" value={origem} />
+
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <div className="campo">
+          <label htmlFor="um-nome">Nome completo</label>
+          <input id="um-nome" name="nome" required autoComplete="off" />
+        </div>
+        <div className="campo">
+          <label htmlFor="um-email">E-mail</label>
+          <input
+            id="um-email"
+            name="email"
+            type="email"
+            required
+            autoComplete="off"
+            placeholder={`nome.sobrenome@${DOMINIO_PERMITIDO}`}
+          />
+          <div className="ajuda">Só e-mail @{DOMINIO_PERMITIDO}.</div>
+        </div>
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, color: 'var(--texto-2)' }}>
+        <input type="checkbox" name="enviar_email" defaultChecked />
+        Enviar o e-mail com o link agora
+      </label>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <BotaoEnviar carregando="Criando…">Gerar convite</BotaoEnviar>
+        <button type="button" className="btn btn--vazado" onClick={aoFechar}>Fechar</button>
+      </div>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Passo 1 e 2: importar a planilha e revisar antes de criar           */
 /* ------------------------------------------------------------------ */
 
-function Importador({ aoFechar }) {
+function Importador({ cargo, aoTrocarCargo, aoFechar }) {
   const router = useRouter();
   const [previa, acaoPrevia] = useFormState(prepararConvidados, null);
   const [criacao, acaoCriacao] = useFormState(criarConvitesLote, null);
@@ -141,16 +257,12 @@ function Importador({ aoFechar }) {
           />
         </div>
 
-        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <div className="campo">
-            <label htmlFor="imp-arquivo">Ou envie um arquivo CSV</label>
-            <input id="imp-arquivo" type="file" accept=".csv,.tsv,.txt,text/csv" onChange={carregarArquivo} />
-            <div className="ajuda">No Excel: Arquivo → Salvar como → CSV. Arquivos .xlsx não são lidos.</div>
-          </div>
-          <div className="campo">
-            <label htmlFor="imp-dominio">Exigir domínio de e-mail</label>
-            <input id="imp-dominio" name="dominio_email" placeholder="al.insper.edu.br" />
-            <div className="ajuda">Vazio aceita qualquer e-mail. Preenchido, linhas fora do domínio viram erro.</div>
+        <div className="campo">
+          <label htmlFor="imp-arquivo">Ou envie um arquivo CSV</label>
+          <input id="imp-arquivo" type="file" accept=".csv,.tsv,.txt,text/csv" onChange={carregarArquivo} />
+          <div className="ajuda">
+            No Excel: Arquivo → Salvar como → CSV. Arquivos .xlsx não são lidos. Linhas com e-mail fora de
+            @{DOMINIO_PERMITIDO} aparecem como erro.
           </div>
         </div>
 
@@ -169,7 +281,8 @@ function Importador({ aoFechar }) {
             <h4 style={{ fontSize: 17, margin: '0 0 6px' }}>Confira antes de criar</h4>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
               {previa.resumo.novos} nova(s) · {previa.resumo.temConta} já com conta ·{' '}
-              {previa.resumo.convidados} já convidada(s) · {previa.resumo.erros} com problema.
+              {previa.resumo.convidados} já convidada(s) · {previa.resumo.erros} com problema. Todas entram como{' '}
+              <strong>{rotuloCargoConvite(cargo).toLowerCase()}</strong>.
             </p>
           </div>
 
@@ -207,22 +320,25 @@ function Importador({ aoFechar }) {
             </table>
           </div>
 
-          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="campo">
+              <label htmlFor="imp-cargo">Entram como</label>
+              <select
+                id="imp-cargo"
+                name="cargo"
+                value={cargo}
+                onChange={(e) => aoTrocarCargo(e.target.value)}
+              >
+                {CARGOS_CONVITE.map((c) => (
+                  <option key={c.valor} value={c.valor}>{c.label}</option>
+                ))}
+              </select>
+              <div className="ajuda">Vale para o lote inteiro.</div>
+            </div>
             <div className="campo">
               <label htmlFor="imp-rotulo">Nome do lote</label>
-              <input id="imp-rotulo" name="rotulo" required placeholder="Trainees 2026.1" />
-            </div>
-            <div className="campo">
-              <label htmlFor="imp-turma">Turma</label>
-              <input id="imp-turma" name="turma" placeholder="2026.1" />
-            </div>
-            <div className="campo">
-              <label htmlFor="imp-area">Frente de trabalho</label>
-              <input id="imp-area" name="area" placeholder="Projetos, Capacitações…" />
-            </div>
-            <div className="campo">
-              <label htmlFor="imp-validade">Validade (dias)</label>
-              <input id="imp-validade" name="validade_dias" type="number" min={1} defaultValue={14} />
+              <input id="imp-rotulo" name="rotulo" placeholder={`${rotuloCargoConvite(cargo)}s 2026.1`} />
+              <div className="ajuda">Opcional — serve para você achar este lote na tabela depois.</div>
             </div>
           </div>
 
@@ -266,7 +382,10 @@ function BotaoRevogar({ id, aoConcluir }) {
 
 export default function Convidados({ convidados }) {
   const router = useRouter();
-  const [importando, setImportando] = useState(false);
+  // O que está aberto: { tipo: 'um' | 'planilha', cargo }. Cada botão abre o
+  // formulário já com o cargo decidido — um clique em "Adicionar trainee" não
+  // deve exigir um segundo clique num seletor para dizer a mesma coisa.
+  const [aberto, setAberto] = useState(null);
   const [origem, setOrigem] = useState('');
   // Resultado do último disparo, por id — some ao recarregar, e não deve
   // sobrepor o que está gravado no banco (enviado_em / erro_envio).
@@ -309,20 +428,54 @@ export default function Convidados({ convidados }) {
 
   return (
     <section style={{ display: 'grid', gap: 24 }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ fontSize: 24, margin: '0 0 6px' }}>Convidados por planilha</h2>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--texto-3)', maxWidth: '62ch' }}>
-            Importe a lista da turma, confira na tela e dispare os e-mails. Cada pessoa recebe um link pessoal, que
-            só funciona com o e-mail dela e só uma vez.
-          </p>
-        </div>
-        <button className="btn btn--solido" onClick={() => setImportando((v) => !v)}>
-          {importando ? 'Fechar' : 'Importar planilha'}
+      <div>
+        <h2 style={{ fontSize: 24, margin: '0 0 6px' }}>Adicionar pessoas</h2>
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--texto-3)', maxWidth: '62ch' }}>
+          Uma pessoa ou uma turma inteira, pedindo só nome e e-mail @{DOMINIO_PERMITIDO}. Cada uma recebe um link
+          pessoal, que vale só para o e-mail dela e só para um cadastro — e é lá que ela escolhe a própria senha.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {CARGOS_CONVITE.map((c) => {
+          const ativo = aberto?.tipo === 'um' && aberto.cargo === c.valor;
+          return (
+            <button
+              key={c.valor}
+              className={ativo ? 'btn btn--vazado' : 'btn btn--solido'}
+              onClick={() => setAberto(ativo ? null : { tipo: 'um', cargo: c.valor })}
+            >
+              {ativo ? 'Fechar' : `Adicionar ${c.label.toLowerCase()}`}
+            </button>
+          );
+        })}
+        <button
+          className="btn btn--vazado"
+          onClick={() =>
+            setAberto((v) => (v?.tipo === 'planilha' ? null : { tipo: 'planilha', cargo: 'trainee' }))
+          }
+        >
+          {aberto?.tipo === 'planilha' ? 'Fechar' : 'Importar planilha'}
         </button>
       </div>
 
-      {importando && <Importador aoFechar={() => setImportando(false)} />}
+      {/* key no cargo: reabrir para outro cargo precisa de um formulário limpo,
+          sem o link e o feedback do convite anterior na tela. */}
+      {aberto?.tipo === 'um' && (
+        <Individual
+          key={aberto.cargo}
+          cargo={aberto.cargo}
+          origem={origem}
+          aoFechar={() => setAberto(null)}
+        />
+      )}
+      {aberto?.tipo === 'planilha' && (
+        <Importador
+          cargo={aberto.cargo}
+          aoTrocarCargo={(cargo) => setAberto({ tipo: 'planilha', cargo })}
+          aoFechar={() => setAberto(null)}
+        />
+      )}
 
       {convidados.length > 0 && (
         <>
@@ -348,6 +501,7 @@ export default function Convidados({ convidados }) {
               <thead>
                 <tr>
                   <th>Convidado</th>
+                  <th>Cargo</th>
                   <th>Lote</th>
                   <th>Envio</th>
                   <th />
@@ -365,6 +519,9 @@ export default function Convidados({ convidados }) {
                       <td style={{ color: 'var(--osso)' }}>
                         {c.nome}
                         <div style={{ fontSize: 12, color: 'var(--texto-3)' }}>{c.email}</div>
+                      </td>
+                      <td>
+                        <span className="selo">{rotuloCargoConvite(c.cargo)}</span>
                       </td>
                       <td style={{ fontSize: 13 }}>
                         {c.rotulo}

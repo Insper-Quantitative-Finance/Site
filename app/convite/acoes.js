@@ -1,6 +1,6 @@
 'use server';
 
-import { CARGO_CONVITE, MOTIVOS, emailPermitido, situacaoConvite } from '@/lib/convites';
+import { MOTIVO_DOMINIO, MOTIVOS, cargoConvite, emailPermitido, situacaoConvite } from '@/lib/convites';
 import { criarClienteAdmin } from '@/lib/supabase/server';
 
 const erro = (mensagem) => ({ ok: false, erro: mensagem });
@@ -12,13 +12,14 @@ const texto = (fd, campo) => {
 };
 
 /**
- * Cria a conta de um trainee a partir de um convite.
+ * Cria a conta de quem recebeu um convite.
  *
  * Esta é a única action do sistema que qualquer pessoa na internet pode
  * chamar, então ela é deliberadamente estreita:
  *
- *   - o cargo é a constante CARGO_CONVITE; nenhum campo do formulário
- *     influencia o cargo, nem por engano, nem por adulteração;
+ *   - o cargo vem da LINHA do convite, gravada por quem criou o lote, e passa
+ *     por cargoConvite(); nenhum campo do formulário influencia o cargo, nem
+ *     por engano, nem por adulteração;
  *   - o convite é consumido por RPC atômica antes de qualquer escrita, para
  *     que dois cliques simultâneos não furem o limite de usos;
  *   - se a criação falhar depois disso, o uso é devolvido — senão um erro
@@ -60,9 +61,7 @@ export async function aceitarConvite(_estadoAnterior, formData) {
     return erro('Este convite é pessoal e foi emitido para outro e-mail. Use o endereço que recebeu o convite.');
   }
 
-  if (!emailPermitido(email, convite.dominio_email)) {
-    return erro(`Este convite aceita apenas e-mails @${convite.dominio_email}.`);
-  }
+  if (!emailPermitido(email, convite.dominio_email)) return erro(MOTIVO_DOMINIO);
 
   const { data: consumido, error: erroConsumo } = await admin.rpc('consumir_convite', {
     p_token: token,
@@ -94,7 +93,8 @@ export async function aceitarConvite(_estadoAnterior, formData) {
     id: criado.user.id,
     email,
     nome,
-    cargo: CARGO_CONVITE, // constante: o convite não negocia cargo
+    // Vem do convite, não do formulário: quem clica no link não negocia cargo.
+    cargo: cargoConvite(convite.cargo),
     turma: convite.turma,
     area: convite.area,
     linkedin: texto(formData, 'linkedin'),
