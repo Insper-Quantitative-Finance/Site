@@ -1,6 +1,7 @@
 import Header from '@/components/landing/Header';
 import Hero from '@/components/landing/Hero';
 import ListaProjetos from '@/components/landing/ListaProjetos';
+import PausarHero from '@/components/landing/PausarHero';
 import Revelar from '@/components/landing/Revelar';
 import Splash from '@/components/landing/Splash';
 import {
@@ -66,6 +67,7 @@ export default async function Home() {
 
       <Header />
       <Revelar />
+      <PausarHero />
 
       <main>
         <Hero />

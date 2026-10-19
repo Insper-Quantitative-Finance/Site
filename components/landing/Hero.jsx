@@ -34,8 +34,14 @@ export default function Hero() {
       }}
     >
       <div style={{ position: 'absolute', inset: 0, background: 'var(--preto-puro)', overflow: 'hidden' }}>
-        <div className="mesh" style={{ position: 'absolute', inset: 0, filter: 'blur(52px)', backgroundColor: 'var(--preto-puro)', backgroundImage: MESH_A }} />
-        <div className="mesh-b" style={{ position: 'absolute', inset: 0, filter: 'blur(70px)', backgroundImage: MESH_B }} />
+        <div className="mesh" style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--preto-puro)', backgroundImage: MESH_A }} />
+        {/* O blur mora no filho e a rotação no pai, de propósito: desfocar um
+            elemento que está sendo transformado obriga o Chrome a refazer o
+            borrão a cada quadro. Separados, ele rasteriza uma vez e a órbita
+            vira só uma textura girando na GPU. */}
+        <div className="mesh-b-orbita">
+          <div className="mesh-b" style={{ backgroundImage: MESH_B }} />
+        </div>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(52% 48% at 32% 42%, rgba(3,3,4,0.85) 0%, rgba(3,3,4,0.3) 58%, transparent 82%)' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(3,3,4,0.5) 0%, rgba(3,3,4,0) 30%, rgba(5,5,6,0.25) 76%, rgba(5,5,6,0.9) 100%)' }} />
       </div>
