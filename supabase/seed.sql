@@ -16,7 +16,7 @@ values
   'Parte da premissa de que o mercado é complexo demais para ser tratado como uma rede estática: as relações entre ações mudam de intensidade ao longo do tempo. O Nexus modela essa estrutura como um grafo que se reconstrói a cada trimestre e deixa uma rede neural aprender, a partir dele, quanto peso dar a cada ativo — com uma camada de risco que reduz exposição em quedas.',
   '[
     {"rotulo":"Distance correlation","texto":"Mede a dependência entre as 50 ações mais líquidas com dois anos de retornos diários, capturando relações não lineares que a correlação de Pearson não enxerga."},
-    {"rotulo":"Filtro TMFG","texto":"Reduz as 2.500 ligações possíveis às 144 mais informativas, preservando a topologia relevante e descartando ruído."},
+    {"rotulo":"Filtro TMFG","texto":"Reduz as 1.225 ligações possíveis às 144 mais informativas, preservando a topologia relevante e descartando ruído."},
     {"rotulo":"Graph Attention Network","texto":"Aprende os pesos do portfólio sobre o grafo filtrado, treinada em walk-forward com função de perda em log do Sharpe e sem look-ahead."},
     {"rotulo":"Controle de risco","texto":"Fora do rebalance trimestral, ajusta o caixa diariamente conforme o drawdown de uma janela de 21 dias."}
   ]'::jsonb,

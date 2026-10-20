@@ -46,11 +46,19 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 /* ------------------------------------------------------------ utilidades */
 .container { max-width: var(--max); margin: 0 auto; }
 
+/* Vários rótulos .eyebrow são, de fato, o título da seção — e agora são h2/h3
+   para o buscador enxergar a estrutura. Daí a classe repetir família, peso e
+   margem: sem isso o reset de h1/h2/h3 jogaria o rótulo para a serifada e o
+   visual mudaria junto com a semântica. */
 .eyebrow {
+  font-family: var(--sans);
   font-size: 11px;
+  font-weight: 400;
   letter-spacing: 0.24em;
+  line-height: 1.6;
   text-transform: uppercase;
   color: var(--azul);
+  margin: 0;
 }
 
 .secao {
@@ -154,9 +162,15 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 
 /* Coluna flex para que os cards fiquem da mesma altura e o link
    "Ver no Instagram" alinhe no rodapé de todos, com ou sem legenda. */
+/* min-width:0 porque item de grid nasce com min-width:auto: sem isto uma
+   legenda do Instagram com um link longo (que não tem onde quebrar) estica o
+   card e, com ele, a página inteira. O overflow-wrap resolve a outra ponta —
+   a palavra quebra em vez de só deixar de empurrar. */
 .cartao-post {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
   background: var(--carvao);
   border: 1px solid var(--linha-card);
   color: inherit;
@@ -230,6 +244,14 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   letter-spacing: 0.16em;
   line-height: 1.7;
   white-space: nowrap;
+}
+
+/* A legenda é uma linha só de propósito, mas o clamp trava a fonte em 7px e
+   abaixo de ~400px a frase deixa de caber: o nowrap então empurrava o hero
+   para 388px numa tela de 367px, e era isso que fazia a home abrir pedindo
+   zoom out. Nessa faixa a frase quebra em duas linhas em vez de furar a tela. */
+@media (max-width: 400px) {
+  .hero-legenda { white-space: normal; }
 }
 
 /* --------------------------------------------------------- reveal ao rolar */
@@ -307,6 +329,40 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 .aviso { padding: 14px 16px; font-size: 14px; line-height: 1.6; border: 1px solid; }
 .aviso--erro { border-color: rgba(214, 26, 26, 0.5); background: rgba(214, 26, 26, 0.08); color: #F2B8B8; }
 .aviso--ok { border-color: rgba(169, 194, 209, 0.5); background: rgba(169, 194, 209, 0.08); color: var(--azul); }
+
+/* ---------------------------------------------- barra de abas que rola */
+/* A nav de membros esconde a scrollbar (ela ficaria grossa e feia por cima
+   das abas), então o aviso de "tem mais coisa para o lado" é um degradê nas
+   bordas. O NavMembros acende cada lado via data-attribute conforme mede o
+   scroll — sombra só onde realmente há conteúdo escondido. */
+.nav-rolavel { position: relative; }
+/* scrollbarWidth cobre o Firefox; o WebKit precisa deste. */
+.nav-rolavel > div::-webkit-scrollbar { display: none; }
+.nav-rolavel::before,
+.nav-rolavel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.nav-rolavel::before {
+  left: 0;
+  background: linear-gradient(to right, var(--preto), rgba(5, 5, 6, 0));
+}
+.nav-rolavel::after {
+  right: 0;
+  background: linear-gradient(to left, var(--preto), rgba(5, 5, 6, 0));
+}
+.nav-rolavel[data-sombra-esquerda]::before,
+.nav-rolavel[data-sombra-direita]::after { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rolavel::before, .nav-rolavel::after { transition: none; }
+}
 
 /* ------------------------------------------------------------ responsivo */
 @media (max-width: 900px) {

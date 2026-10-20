@@ -196,7 +196,7 @@ function Individual({ cargo, origem, emailPronto, aoMarcar, aoFechar }) {
       <input type="hidden" name="cargo" value={cargo} />
       <input type="hidden" name="origem" value={origem} />
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="um-nome">Nome completo</label>
           <input id="um-nome" name="nome" required autoComplete="off" />
@@ -392,7 +392,7 @@ function Importador({ cargo, aoTrocarCargo, aoFechar }) {
             </table>
           </div>
 
-          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))' }}>
             <div className="campo">
               <label htmlFor="imp-cargo">Entram como</label>
               <select

@@ -43,7 +43,7 @@ export default async function MinhaConta() {
           A senha é sua e de mais ninguém — nem a presidência consegue vê-la ou alterá-la. Se esquecer, peça um link de
           redefinição na tela de login.
         </p>
-        <FormularioSenha />
+        <FormularioSenha emailAtual={usuario.authEmail || usuario.email} />
       </section>
     </div>
   );

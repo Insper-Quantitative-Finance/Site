@@ -39,7 +39,7 @@ function FormularioEntrega({ entrega, aoConcluir }) {
         />
       </div>
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="data_limite">Data de entrega</label>
           <input

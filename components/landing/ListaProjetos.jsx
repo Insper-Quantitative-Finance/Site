@@ -18,6 +18,11 @@ function CartaoProjeto({ p }) {
         flexDirection: 'column',
         gap: 20,
         padding: '38px 34px 0',
+        // Item de grid nasce com min-width:auto e não encolhe abaixo do
+        // próprio conteúdo: num celular estreito um título como "Nexus
+        // (Desafio Quant AI)" esticava o card e furava a página.
+        minWidth: 0,
+        overflowWrap: 'anywhere',
       }}
     >
       {(p.selo || p.contexto) && (
@@ -40,7 +45,7 @@ function CartaoProjeto({ p }) {
       )}
 
       <div>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: 28, lineHeight: 1.2, marginBottom: 8 }}>{p.titulo}</div>
+        <h3 style={{ fontFamily: 'var(--serif)', fontSize: 28, lineHeight: 1.2, marginBottom: 8 }}>{p.titulo}</h3>
         {p.subtitulo && (
           <div style={{ fontSize: 14, color: 'var(--texto-2)', lineHeight: 1.5 }}>{p.subtitulo}</div>
         )}

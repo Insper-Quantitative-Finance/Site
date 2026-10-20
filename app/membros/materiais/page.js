@@ -85,7 +85,7 @@ export default async function Materiais() {
             >
               {categoria} · {itens.length}
             </div>
-            <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))' }}>
               {itens.map((m) => <Material key={m.id} m={m} />)}
             </div>
           </section>

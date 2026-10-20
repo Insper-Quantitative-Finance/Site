@@ -45,7 +45,7 @@ function FormularioMaterial({ material, aoConcluir }) {
         <textarea id="descricao" name="descricao" defaultValue={material?.descricao ?? ''} />
       </div>
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="categoria">Categoria</label>
           <select id="categoria" name="categoria" defaultValue={material?.categoria ?? 'Geral'}>

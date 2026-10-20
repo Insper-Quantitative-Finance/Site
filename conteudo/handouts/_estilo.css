@@ -46,14 +46,19 @@
 .handout .abertura { font-size: 18px; line-height: 1.7; color: var(--texto-2); margin: 0 0 40px; max-width: 58ch; }
 
 /* ---- ficha técnica ---- */
+/* O min(150px, 100%) é o que faz a ficha caber no celular: com o piso de
+   150px cru, as quatro colunas exigiam 600px e o cabeçalho furava a tela —
+   era por isso que a página abria pedindo zoom out. */
 .handout .ficha {
   display: grid; gap: 1px; background: var(--linha);
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   border: 1px solid var(--linha); margin: 0 0 64px;
 }
-.handout .ficha > div { background: var(--carvao); padding: 16px 18px; }
+.handout .ficha > div { background: var(--carvao); padding: 16px 18px; min-width: 0; }
 .handout .ficha dt { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); margin-bottom: 6px; }
-.handout .ficha dd { margin: 0; font-size: 15px; font-family: var(--mono-h); }
+/* Nome de arquivo (`precos_limpo.parquet`) não tem espaço para quebrar: sem
+   isto a célula cresce até o nome caber e arrasta a ficha inteira. */
+.handout .ficha dd { margin: 0; font-size: 15px; font-family: var(--mono-h); overflow-wrap: anywhere; }
 
 /* ---- texto ---- */
 .handout h2 {
@@ -133,4 +138,9 @@
 
 @media (max-width: 560px) {
   .handout .bloco pre { font-size: 12.5px; }
+
+  /* No desktop o nowrap evita quebra feia no meio de `pd.to_numeric`. No
+     celular ele é o que estoura a linha: um `dropna(axis=1, how="all")` no
+     meio de um parágrafo não cabe em 360px e empurra a página inteira. */
+  .handout code { white-space: normal; overflow-wrap: anywhere; }
 }

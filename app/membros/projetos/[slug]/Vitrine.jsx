@@ -114,7 +114,7 @@ export default function Vitrine({ projeto }) {
                      rotulo="resumo" estilo={{ fontSize: 15, color: 'var(--texto-2)', lineHeight: 1.7, display: 'block' }} />
       </Campo>
 
-      <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))' }}>
         <Campo label="Selo">
           <InlineTexto {...comum} campo="selo" valor={projeto.selo} placeholder="2º lugar" rotulo="selo" />
         </Campo>
@@ -135,7 +135,7 @@ export default function Vitrine({ projeto }) {
           {...comum}
           campo="detalhes"
           valor={paraTexto(projeto.detalhes, 'rotulo', 'texto')}
-          placeholder="Filtro TMFG | Reduz as 2.500 ligações possíveis às 144 mais informativas."
+          placeholder="Filtro TMFG | Reduz as 1.225 ligações possíveis às 144 mais informativas."
           multilinha
           rotulo="detalhes"
           estilo={{ fontFamily: 'ui-monospace, monospace', fontSize: 13, display: 'block', lineHeight: 1.7 }}
@@ -156,7 +156,7 @@ export default function Vitrine({ projeto }) {
 
       <fieldset style={{ border: '1px solid var(--linha-forte)', padding: '20px 22px', display: 'grid', gap: 24 }}>
         <legend className="eyebrow" style={{ padding: '0 8px' }}>Parceiro</legend>
-        <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))' }}>
           <Campo label="Nome">
             <InlineTexto {...comum} campo="parceiro_nome" valor={projeto.parceiro_nome} rotulo="parceiro" />
           </Campo>
