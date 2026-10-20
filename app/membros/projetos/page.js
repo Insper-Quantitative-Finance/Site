@@ -88,7 +88,7 @@ function Grade({ titulo, descricao, projetos, idsMeus, vazio }) {
       {projetos.length === 0 ? (
         <div className="painel" style={{ color: 'var(--texto-3)', fontSize: 14 }}>{vazio}</div>
       ) : (
-        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }}>
           {projetos.map((p) => <Cartao key={p.id} projeto={p} meu={idsMeus.has(p.id)} />)}
         </div>
       )}

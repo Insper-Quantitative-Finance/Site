@@ -67,7 +67,9 @@ export default function FormularioLogin({ destino }) {
 
   async function recuperarSenha() {
     if (!email.trim()) {
-      setErro('Escreva seu e-mail no campo acima para receber o link de redefinição.');
+      // O aviso é renderizado acima dos campos, então "campo acima" apontava
+      // para o lugar errado.
+      setErro('Preencha o campo de e-mail para receber o link de redefinição.');
       return;
     }
     setErro(null);
@@ -87,7 +89,9 @@ export default function FormularioLogin({ destino }) {
   }
 
   return (
-    <form onSubmit={entrar} style={{ display: 'grid', gap: 20 }}>
+    // method="post" é rede de segurança: o envio real é por JS, mas se ele
+    // falhar o default seria GET — e a senha iria parar na URL.
+    <form onSubmit={entrar} method="post" style={{ display: 'grid', gap: 20 }}>
       {erro && <div className="aviso aviso--erro">{erro}</div>}
       {aviso && <div className="aviso aviso--ok">{aviso}</div>}
 

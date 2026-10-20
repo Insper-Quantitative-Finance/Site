@@ -83,6 +83,12 @@ export default function Header() {
             overflow-x: auto;
             width: 100%;
             scrollbar-width: none;
+            /* São nove links e cabem uns quatro: a barra sempre rola aqui.
+               Com a scrollbar escondida nada dizia isso — os links restantes
+               simplesmente sumiam. O mask apaga a borda direita, que é o
+               aviso de que a lista continua para o lado. */
+            mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
           }
           .nav-topo::-webkit-scrollbar { display: none; }
         }

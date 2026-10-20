@@ -22,7 +22,7 @@ export function Sobre() {
         <div className="grade-hairline grade-3">
           {blocos.map((b) => (
             <div key={b.titulo} style={{ padding: '40px 34px 44px' }}>
-              <div className="eyebrow" style={{ marginBottom: 20 }}>{b.titulo}</div>
+              <h2 className="eyebrow" style={{ marginBottom: 20 }}>{b.titulo}</h2>
               {b.texto ? (
                 <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--texto-2)' }}>{b.texto}</p>
               ) : (
@@ -63,7 +63,7 @@ export function OQueE() {
       }}
     >
       <div className="container">
-        <div className="eyebrow" style={{ marginBottom: 16 }}>O que são finanças quantitativas</div>
+        <h2 className="eyebrow" style={{ marginBottom: 16 }}>O que são finanças quantitativas</h2>
 
         <div className="duas-colunas" style={{ alignItems: 'start' }}>
           <div>
@@ -88,7 +88,7 @@ export function OQueE() {
           <div className="grade-hairline">
             {etapas.map(([titulo, texto]) => (
               <div key={titulo} style={{ padding: '30px 30px 32px' }}>
-                <div className="eyebrow" style={{ marginBottom: 14 }}>{titulo}</div>
+                <h3 className="eyebrow" style={{ marginBottom: 14 }}>{titulo}</h3>
                 <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'var(--texto-2)' }}>{texto}</p>
               </div>
             ))}
@@ -110,7 +110,7 @@ export function OQueE() {
           <div style={{ display: 'grid', gap: 20 }}>
             {pilares.map(([rotulo, texto]) => (
               <div key={rotulo} className="linha-rotulo">
-                <div className="eyebrow" style={{ color: 'rgba(169,194,209,0.9)' }}>{rotulo}</div>
+                <h3 className="eyebrow" style={{ color: 'rgba(169,194,209,0.9)' }}>{rotulo}</h3>
                 <div style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--texto-2)' }}>{texto}</div>
               </div>
             ))}
@@ -476,7 +476,7 @@ export function Empresas() {
           {caminhos.map(([n, titulo, texto]) => (
             <div key={n}>
               <div className="eyebrow" style={{ letterSpacing: '0.2em', marginBottom: 16 }}>{n}</div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.3, marginBottom: 12 }}>{titulo}</div>
+              <h3 style={{ fontFamily: 'var(--serif)', fontSize: 21, lineHeight: 1.3, marginBottom: 12 }}>{titulo}</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--texto-3)' }}>{texto}</p>
             </div>
           ))}
@@ -519,7 +519,7 @@ export function Parceiros() {
   return (
     <section id="parceiros" className="secao secao--carvao" style={{ padding: '100px 0' }}>
       <div className="container" style={{ margin: '0 auto 44px', padding: '0 var(--gutter)' }}>
-        <div className="eyebrow">Parceiros e patrocinadores de eventos passados</div>
+        <h2 className="eyebrow">Parceiros e patrocinadores de eventos passados</h2>
       </div>
       <div className="marquee">
         {fila(false)}

@@ -60,15 +60,20 @@ export default function Hero() {
             background: 'radial-gradient(circle, rgba(169,194,209,0.20) 0%, rgba(169,194,209,0.06) 42%, transparent 70%)',
           }}
         />
-        <Image
-          className="hero-logo"
-          src="/assets/logo-iqf.png"
-          alt="Liga Insper Quantitative Finance"
-          width={396}
-          height={184}
-          priority
-          style={{ width: 'min(72vw, 396px)', height: 'auto', display: 'block', margin: '0 auto 34px' }}
-        />
+        {/* O nome da liga é o logo, e o logo é imagem — sem este h1 a página
+            não tinha título nenhum para o buscador. O alt vira o texto do h1,
+            e envolver a imagem não muda nada na tela. */}
+        <h1 style={{ margin: 0 }}>
+          <Image
+            className="hero-logo"
+            src="/assets/logo-iqf.png"
+            alt="Insper Quantitative Finance"
+            width={396}
+            height={184}
+            priority
+            style={{ width: 'min(72vw, 396px)', height: 'auto', display: 'block', margin: '0 auto 34px' }}
+          />
+        </h1>
         <p
           className="hero-rise-2 hero-legenda"
           style={{

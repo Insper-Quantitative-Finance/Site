@@ -241,7 +241,7 @@ export default async function Trainee() {
             <p className="p-corpo" style={{ maxWidth: '58ch', margin: '0 0 24px' }}>
               Cada handout abre aqui dentro, com o texto e os exercícios da aula. Faça na ordem.
             </p>
-            <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+            <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))' }}>
               {aulas.map((h) => <CartaoHandout key={h.slug} h={h} />)}
             </div>
           </>
@@ -253,7 +253,7 @@ export default async function Trainee() {
           <div className="eyebrow" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--linha)' }}>
             Material complementar · {handouts.length}
           </div>
-          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))' }}>
             {handouts.map((m) => <Handout key={m.id} m={m} />)}
           </div>
         </section>

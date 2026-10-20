@@ -166,7 +166,9 @@ export default function Metas({ projetoId, metas, marcos, podeEditar }) {
   return (
     <div style={{ display: 'grid', gap: 40 }}>
       <Secao titulo="Metas">
-        {metas.length > 0 && (
+        {metas.length === 0 ? (
+          <div className="painel" style={{ color: 'var(--texto-3)', fontSize: 14 }}>Nenhuma meta definida.</div>
+        ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {metas.map((m) => <Meta key={m.id} meta={m} projetoId={projetoId} podeEditar={podeEditar} />)}
           </ul>
@@ -179,7 +181,9 @@ export default function Metas({ projetoId, metas, marcos, podeEditar }) {
       </Secao>
 
       <Secao titulo="Marcos">
-        {marcos.length > 0 && (
+        {marcos.length === 0 ? (
+          <div className="painel" style={{ color: 'var(--texto-3)', fontSize: 14 }}>Nenhum marco definido.</div>
+        ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {marcos.map((m) => <Marco key={m.id} marco={m} projetoId={projetoId} podeEditar={podeEditar} />)}
           </ul>

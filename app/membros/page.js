@@ -64,7 +64,7 @@ export default async function PainelMembros() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))' }}>
         <Atalho
           href="/membros/trainee"
           titulo="Entregas e handouts"

@@ -116,7 +116,7 @@ export default function Cabecalho({ projeto, tarefas, equipe, podeEditar, podeVi
       )}
 
       <div className="painel" style={{ display: 'grid', gap: 20 }}>
-        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))' }}>
           <Dado rotulo="Status">
             <InlineSelect
               tabela="projetos"

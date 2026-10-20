@@ -74,7 +74,7 @@ function FormularioNovoConvite({ origem, aoFechar }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="cv-link-cargo">Cria conta de</label>
           <select id="cv-link-cargo" name="cargo" defaultValue="trainee">

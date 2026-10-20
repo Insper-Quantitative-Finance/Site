@@ -46,7 +46,9 @@ export default function Equipe({ projetoId, equipe, candidatos, usuarioId, podeG
             style={{
               display: 'grid',
               gap: 12,
-              gridTemplateColumns: 'minmax(200px, 2fr) minmax(130px, 1fr) auto',
+              // min(…, 100%) para a linha poder encolher abaixo do piso no
+              // celular — sem isso os 330px fixos estouram a tela.
+              gridTemplateColumns: 'minmax(min(200px, 100%), 2fr) minmax(min(130px, 100%), 1fr) auto',
               alignItems: 'end',
             }}
           >

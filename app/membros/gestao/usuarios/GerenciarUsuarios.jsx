@@ -36,7 +36,7 @@ function FormularioNovo({ ator, aoFechar }) {
       </div>
       <Feedback estado={estado} />
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="novo-nome">Nome completo</label>
           <input id="novo-nome" name="nome" required />
@@ -62,7 +62,7 @@ function FormularioNovo({ ator, aoFechar }) {
         <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--texto-3)' }}>
           Campos opcionais (frente, turma, LinkedIn)
         </summary>
-        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: 20 }}>
+        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', marginTop: 20 }}>
           <div className="campo">
             <label htmlFor="novo-area">Frente de trabalho</label>
             <input id="novo-area" name="area" placeholder="Projetos, Capacitações…" />
@@ -115,7 +115,7 @@ function FormularioEdicao({ usuario, ator, aoFechar }) {
 
       <input type="hidden" name="id" value={usuario.id} />
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="ed-nome">Nome completo</label>
           <input id="ed-nome" name="nome" required defaultValue={usuario.nome} />
@@ -141,7 +141,7 @@ function FormularioEdicao({ usuario, ator, aoFechar }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
         <div className="campo">
           <label htmlFor="ed-area">Frente de trabalho</label>
           <input id="ed-area" name="area" defaultValue={usuario.area ?? ''} />
