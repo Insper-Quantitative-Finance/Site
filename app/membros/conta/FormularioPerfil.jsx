@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro } from '@/lib/erros';
 
 /**
  * Edição do próprio nome — o único campo do perfil que o membro controla.
@@ -29,7 +30,10 @@ export default function FormularioPerfil({ usuario }) {
       .eq('id', usuario.id);
 
     setSalvando(false);
-    if (error) setEstado({ erro: `Não foi possível salvar: ${error.message}` });
+    // A mensagem crua daqui era a mais sensível do site: o update passa pelo
+    // RLS e pelo trigger proteger_campos_perfil, então o erro vinha falando de
+    // `profiles` e de política de acesso. Agora isso fica no log.
+    if (error) setEstado({ erro: registrarErro('conta: salvar nome', error, { acao: 'salvar' }) });
     else {
       setEstado({ ok: 'Nome atualizado.' });
       router.refresh();

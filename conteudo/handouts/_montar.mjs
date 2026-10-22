@@ -14,10 +14,15 @@
  *
  * O corpo e o HTML montado não entram no repositório (o .gitignore barra
  * *.html aqui): este repositório é público. O que fica versionado é a
- * ferramenta — este arquivo e o _estilo.css.
+ * ferramenta — este arquivo e o estilo.mjs.
+ *
+ * O <style> que este script embute serve ao arquivo ABERTO SOZINHO. Dentro do
+ * site, a página importa estilo.mjs direto e ignora o <style> do arquivo — foi
+ * assim que o CSS deixou de congelar na versão do dia do upload.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { ESTILO_HANDOUT } from './estilo.mjs';
 
 const AQUI = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 
@@ -33,10 +38,8 @@ if (!alvo) {
   process.exit(1);
 }
 
-const [estilo, corpo] = await Promise.all([
-  readFile(path.join(AQUI, '_estilo.css'), 'utf8'),
-  readFile(path.join(AQUI, `_corpo-${n}.html`), 'utf8'),
-]);
+const estilo = ESTILO_HANDOUT;
+const corpo = await readFile(path.join(AQUI, `_corpo-${n}.html`), 'utf8');
 
 // Só para o arquivo aberto sozinho: dentro do site, o fundo e a fonte são os
 // da área de membros, e estas regras não são injetadas.

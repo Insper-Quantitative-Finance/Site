@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro } from '@/lib/erros';
 
 /**
  * Sobe um arquivo direto do navegador para o Storage e devolve a referência
@@ -41,7 +42,7 @@ export default function CampoUpload({
 
     if (error) {
       setEnviando(false);
-      return setErro(`Falha no upload: ${error.message}`);
+      return setErro(registrarErro(`upload em ${bucket}`, error, { acao: 'enviar o arquivo' }));
     }
 
     // Bucket público tem URL estável; o privado é servido por rota autenticada.

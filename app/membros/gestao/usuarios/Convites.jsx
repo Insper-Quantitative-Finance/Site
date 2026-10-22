@@ -93,11 +93,21 @@ function FormularioNovoConvite({ origem, aoFechar }) {
           <input id="cv-usos" name="usos_max" type="number" min={1} placeholder="ilimitado" />
           <div className="ajuda">Vazio = sem limite. Use o tamanho da turma para não sobrar vaga.</div>
         </div>
+        <div className="campo">
+          <label htmlFor="cv-validade">Vale por</label>
+          <select id="cv-validade" name="validade_dias" defaultValue="30">
+            <option value="7">7 dias</option>
+            <option value="30">30 dias</option>
+            <option value="90">90 dias</option>
+            <option value="0">Sem prazo</option>
+          </select>
+          <div className="ajuda">Depois do prazo o link para de criar contas sozinho.</div>
+        </div>
       </div>
 
       <div className="aviso" style={{ borderColor: 'var(--linha-forte)', color: 'var(--texto-3)', margin: 0 }}>
-        Só e-mails @{DOMINIO_PERMITIDO} conseguem se cadastrar — é a trava que vale se o link vazar. O convite não
-        tem prazo: use <strong>Revogar</strong> quando quiser desligá-lo.
+        Só e-mails @{DOMINIO_PERMITIDO} conseguem se cadastrar — é a trava que vale se o link vazar. Para desligar
+        o link antes do prazo, use <strong>Revogar</strong>.
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -150,7 +160,7 @@ export default function Convites({ convites }) {
       {convites.length === 0 ? (
         <p style={{ margin: 0, fontSize: 14, color: 'var(--texto-3)' }}>Nenhum convite criado ainda.</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="tabela-rolagem">
           <table className="tabela">
             <thead>
               <tr>

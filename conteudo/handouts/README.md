@@ -11,9 +11,8 @@ local: o `.gitignore` barra os `.html` daqui.
 ## Como o handout é montado
 
 O conteúdo fica em `_corpo-<n>.html` — só o corpo, sem `<html>` nem `<style>`.
-O estilo e o script (tema claro/escuro, botão de copiar código) ficam em
-`_estilo.css` e em `_montar.mjs`, num lugar só, para os handouts não
-divergirem de visual conforme forem saindo:
+O estilo fica em `estilo.mjs` e o script em `_montar.mjs`, num lugar só, para
+os handouts não divergirem de visual conforme forem saindo:
 
 ```
 node conteudo/handouts/_montar.mjs 2
@@ -22,6 +21,22 @@ node conteudo/handouts/_montar.mjs 2
 Isso gera o arquivo autocontido que vai para o bucket. Os corpos e o HTML
 montado não entram no repositório (o `.gitignore` barra `*.html` aqui); o que
 fica versionado é a ferramenta.
+
+### Mexer no CSS não exige subir handout de novo
+
+O estilo é `estilo.mjs` — um módulo que exporta o CSS como string, e não um
+`.css`, porque a página do site precisa dele como texto para injetar. Quem
+importa são dois: o `_montar.mjs`, para o arquivo avulso abrir sozinho, e a
+página `app/membros/trainee/handout/[slug]/page.js`.
+
+A página usa **só** este módulo e ignora o `<style>` que vem dentro do arquivo
+baixado do bucket. Isso é de propósito: aquele `<style>` é uma fotografia do CSS
+do dia do upload, e enquanto a página o usava, corrigir o estilo aqui não mudava
+nada no ar até alguém remontar e subir cada handout de novo — foi assim que os
+handouts seguiram vazando da tela no celular com o conserto já comitado.
+
+Então: conserto de CSS vale com um deploy. Remontar e subir só é necessário
+quando muda o **conteúdo** (`_corpo-<n>.html`).
 
 Convenções do corpo: `.bloco` para código com `<header>` de rótulo,
 `.bloco.saida` para saída do Python, `.bloco.errado` para o código que o

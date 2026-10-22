@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { atualizarCampo } from '../acoes';
+import { avisarErro } from './Aviso';
 import { BotaoExcluir, InlineTexto, QuickAdd } from './Inline';
 
 /** "2026-05-20T18:30:00Z" → "20/05 15:30" no fuso de quem está lendo. */
@@ -60,7 +61,7 @@ function QuandoInline({ reuniao, projetoId, podeEditar }) {
             campo: 'quando',
             valor: e.target.value,
           });
-          if (!r?.ok) return alert(r?.erro ?? 'Não foi possível salvar.');
+          if (!r?.ok) return avisarErro(r?.erro);
           router.refresh();
         });
       }}
@@ -93,7 +94,7 @@ function LinkReuniao({ reuniao, projetoId, podeEditar }) {
         campo: 'link',
         valor,
       });
-      if (!r?.ok) return alert(r?.erro ?? 'Não foi possível salvar o link.');
+      if (!r?.ok) return avisarErro(r?.erro);
       setColando(false);
       setUrl('');
       router.refresh();

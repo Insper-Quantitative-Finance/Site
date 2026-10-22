@@ -20,6 +20,9 @@ import {
 function FormularioNovo({ ator, aoFechar }) {
   const router = useRouter();
   const [estado, acao] = useFormState(criarUsuario, null);
+  // Lido depois da montagem para o HTML do servidor e o do cliente baterem.
+  const [origem, setOrigem] = useState('');
+  useEffect(() => setOrigem(window.location.origin), []);
 
   useEffect(() => {
     if (estado?.ok) router.refresh();
@@ -30,8 +33,9 @@ function FormularioNovo({ ator, aoFechar }) {
       <div>
         <h2 style={{ fontSize: 22, margin: '0 0 6px' }}>Novo usuário</h2>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--texto-3)' }}>
-          Cria a conta já pronta, com uma senha que você define e repassa. Para entrar alguém pedindo só nome e
-          e-mail — sem combinar senha por mensagem —, use <strong>Adicionar pessoas</strong> no começo da página.
+          Cria a conta e envia para a pessoa um link por e-mail para ela definir a própria senha. Use isto quando
+          precisar escolher o cargo; para chamar trainees e membros em lote, use <strong>Adicionar pessoas</strong>{' '}
+          no começo da página.
         </p>
       </div>
       <Feedback estado={estado} />
@@ -43,7 +47,7 @@ function FormularioNovo({ ator, aoFechar }) {
         </div>
         <div className="campo">
           <label htmlFor="novo-email">E-mail</label>
-          <input id="novo-email" name="email" type="email" required placeholder={`nome@${DOMINIO_PERMITIDO}`} />
+          <input id="novo-email" name="email" type="email" required placeholder={`seunome@${DOMINIO_PERMITIDO}`} />
           <div className="ajuda">Só e-mail @{DOMINIO_PERMITIDO}.</div>
         </div>
         <div className="campo">
@@ -78,13 +82,13 @@ function FormularioNovo({ ator, aoFechar }) {
         </div>
       </details>
 
-      <div className="campo">
-        <label htmlFor="novo-senha">Senha inicial</label>
-        <input id="novo-senha" name="senha" type="text" minLength={8} required autoComplete="off" />
-        <div className="ajuda">
-          Mínimo de 8 caracteres. Passe essa senha para a pessoa e peça que troque em “Minha conta” no primeiro acesso —
-          depois disso, nem você nem a presidência conseguem vê-la.
-        </div>
+      {/* `origem` é lida pela action para montar o link do e-mail; o servidor
+          não tem como saber em que domínio a página está aberta. */}
+      <input type="hidden" name="origem" value={origem} />
+
+      <div className="aviso aviso--info" style={{ margin: 0 }}>
+        A senha quem define é a própria pessoa, pelo link que vai no e-mail. Ninguém da gestão chega a ver uma senha,
+        e nada precisa ser combinado por mensagem.
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -297,7 +301,7 @@ export default function GerenciarUsuarios({ usuarios, ator }) {
         </>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
+      <div className="tabela-rolagem">
         <table className="tabela">
           <thead>
             <tr>

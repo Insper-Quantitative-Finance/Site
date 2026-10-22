@@ -25,12 +25,13 @@ import { acharHandout, comoInstante } from '@/lib/handouts';
 import { lerConvidados } from '@/lib/planilha';
 import { usuarioOuNulo } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
+import { ErroDeRegra, registrarErro } from '@/lib/erros';
 
 /** Toda action passa por aqui: sem gestão, nada acontece. */
 async function exigirGestao() {
   const ator = await usuarioOuNulo();
   if (!ator || !ehGestao(ator.cargo)) {
-    throw new Error('Ação restrita aos cargos de gestão.');
+    throw new ErroDeRegra('Ação restrita aos cargos de gestão.');
   }
   return ator;
 }
@@ -64,38 +65,47 @@ const sucesso = (mensagem) => ({ ok: true, mensagem });
 
 /**
  * Cria o usuário no auth do Supabase e o perfil correspondente.
- * A senha inicial é definida aqui e o membro a troca depois em /membros/conta —
- * a gestão nunca consegue ler nem reeditar a senha de ninguém.
+ *
+ * Sem senha. A conta nasce SEM senha utilizável e a pessoa define a dela pelo
+ * link que sai por e-mail — o mesmo fluxo do "esqueci minha senha".
+ *
+ * Antes havia um campo "senha inicial", e ele errava de três maneiras ao mesmo
+ * tempo: era `type="text"`, então a senha ficava legível na tela de quem
+ * cadastrava; o texto de ajuda mandava repassá-la para a pessoa, o que na
+ * prática significa WhatsApp; e nada obrigava a troca depois, então a senha que
+ * passou pela mensagem continuava valendo por tempo indeterminado. Nenhum dos
+ * três tem conserto enquanto a gestão escolhe a senha de outra pessoa.
+ *
+ * O que se perde: a conta não entra "pronta para usar". O que se ganha: em
+ * nenhum momento existe uma senha que duas pessoas conhecem.
  */
 export async function criarUsuario(_estadoAnterior, formData) {
   let ator;
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: criarUsuario', e));
   }
 
   const email = texto(formData, 'email')?.toLowerCase();
   const nome = texto(formData, 'nome');
   const cargo = texto(formData, 'cargo') || 'trainee';
-  const senha = formData.get('senha');
+  const origem = texto(formData, 'origem');
 
   if (!email || !nome) return erro('Nome e e-mail são obrigatórios.');
   // A mesma trava do convite: não há caminho para criar conta fora do domínio.
   if (!emailPermitido(email)) return erro(MOTIVO_DOMINIO);
   if (!CARGOS[cargo]) return erro('Cargo inválido.');
-  if (typeof senha !== 'string' || senha.length < 8) {
-    return erro('A senha inicial precisa ter pelo menos 8 caracteres.');
-  }
   if (!cargosAtribuiveis(ator.cargo).some((c) => c.valor === cargo)) {
     return erro('Só a presidência pode criar usuários em cargos de gestão.');
   }
 
   const admin = criarClienteAdmin();
 
+  // Sem `password`: o Supabase cria a conta sem senha utilizável. Até a pessoa
+  // abrir o link e definir a dela, não existe senha que sirva para entrar.
   const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
     email,
-    password: senha,
     email_confirm: true, // cadastro é interno; não faz sentido exigir confirmação
     user_metadata: { nome },
   });
@@ -104,7 +114,7 @@ export async function criarUsuario(_estadoAnterior, formData) {
     return erro(
       erroAuth.message.includes('already registered')
         ? 'Já existe um usuário com esse e-mail.'
-        : `Não foi possível criar o usuário: ${erroAuth.message}`,
+        : registrarErro('gestao: criarUsuario', erroAuth, { acao: 'criar o usuário' }),
     );
   }
 
@@ -121,13 +131,28 @@ export async function criarUsuario(_estadoAnterior, formData) {
   if (erroPerfil) {
     // Sem perfil o login existiria sem identidade: desfaz o usuário do auth.
     await admin.auth.admin.deleteUser(criado.user.id);
-    return erro(`Não foi possível criar o perfil: ${erroPerfil.message}`);
+    return erro(registrarErro('gestao: criarUsuario', erroPerfil, { acao: 'criar o perfil' }));
+  }
+
+  // O link de definir senha. Se o envio falhar, a conta continua criada e
+  // válida — a gestão reenvia pelo botão "Enviar link de senha" na lista. Por
+  // isso a falha vira aviso no texto de sucesso, e não erro da action: desfazer
+  // a conta por causa de um e-mail que não saiu seria pior.
+  let avisoEnvio = '';
+  const { error: erroLink } = await criarClienteServidor().auth.resetPasswordForEmail(email, {
+    redirectTo: `${origem}/membros/conta/redefinir`,
+  });
+  if (erroLink) {
+    registrarErro('gestao: criarUsuario/enviar link', erroLink);
+    avisoEnvio = ' O e-mail com o link não saiu — use “Enviar link de senha” na lista abaixo.';
   }
 
   await registrar(ator, 'criar_usuario', 'profiles', criado.user.id, { email, cargo });
   revalidatePath('/membros/gestao/usuarios');
   revalidatePath('/membros/quadro');
-  return sucesso(`${nome} foi cadastrado. Avise para trocar a senha no primeiro acesso.`);
+  return sucesso(
+    `${nome} foi cadastrado. Enviamos um e-mail para ${email} com o link para definir a senha.${avisoEnvio}`,
+  );
 }
 
 /**
@@ -139,7 +164,7 @@ export async function editarUsuario(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: editarUsuario', e));
   }
 
   const id = texto(formData, 'id');
@@ -183,7 +208,7 @@ export async function editarUsuario(_estadoAnterior, formData) {
     })
     .eq('id', id);
 
-  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: editarUsuario', error, { acao: 'salvar' }));
 
   await registrar(ator, 'editar_usuario', 'profiles', id, { cargo: cargoFinal, ativo });
   revalidatePath('/membros/gestao/usuarios');
@@ -204,7 +229,7 @@ export async function excluirUsuario(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: excluirUsuario', e));
   }
 
   const id = texto(formData, 'id');
@@ -231,7 +256,7 @@ export async function excluirUsuario(_estadoAnterior, formData) {
   });
 
   const { error } = await admin.auth.admin.deleteUser(alvo.id);
-  if (error) return erro(`Não foi possível apagar a conta: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: excluirUsuario', error, { acao: 'apagar a conta' }));
 
   revalidatePath('/membros/gestao/usuarios');
   revalidatePath('/membros/quadro');
@@ -248,7 +273,7 @@ export async function enviarRedefinicaoSenha(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: enviarRedefinicaoSenha', e));
   }
 
   const email = texto(formData, 'email');
@@ -259,7 +284,7 @@ export async function enviarRedefinicaoSenha(_estadoAnterior, formData) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origem}/membros/conta/redefinir`,
   });
-  if (error) return erro(`Não foi possível enviar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: enviarRedefinicaoSenha', error, { acao: 'enviar' }));
 
   await registrar(ator, 'enviar_redefinicao', 'profiles', null, { email });
   return sucesso(`Link de redefinição enviado para ${email}.`);
@@ -295,7 +320,7 @@ export async function criarConvite(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: criarConvite', e));
   }
 
   const cargo = cargoConvidavel(ator.cargo, texto(formData, 'cargo'));
@@ -306,6 +331,25 @@ export async function criarConvite(_estadoAnterior, formData) {
   // Vazio/0 = ilimitado; a coluna aceita null e o CHECK recusa zero.
   const brutoUsos = formData.get('usos_max');
   const usosMax = Number(brutoUsos) > 0 ? Number(brutoUsos) : null;
+
+  /*
+   * Prazo de validade.
+   *
+   * A coluna `expira_em` sempre existiu, e tanto o consumir_convite() quanto o
+   * situacaoConvite() já a respeitavam — mas NADA a preenchia. Resultado: todo
+   * link de turma nascia eterno, e um link eterno é uma chave que não se perde
+   * nunca: qualquer e-mail @al.insper.edu.br que o recebesse, em qualquer ano,
+   * criaria conta até alguém lembrar de revogar manualmente.
+   *
+   * O default é 30 dias porque convite de turma serve a uma janela de entrada,
+   * não ao semestre inteiro. "Sem prazo" continua disponível, mas agora é uma
+   * escolha explícita em vez do que acontece sozinho.
+   */
+  const dias = Number(formData.get('validade_dias'));
+  const expiraEm =
+    Number.isFinite(dias) && dias > 0
+      ? new Date(Date.now() + dias * 86400000).toISOString()
+      : null;
 
   // 32 bytes: adivinhar um token por força bruta é inviável, e ele é a
   // única coisa que separa um estranho de uma conta na área de membros.
@@ -321,14 +365,15 @@ export async function criarConvite(_estadoAnterior, formData) {
       // todo mundo, e a action pública revalida por emailPermitido().
       dominio_email: DOMINIO_PERMITIDO,
       usos_max: usosMax,
+      expira_em: expiraEm,
       criado_por: ator.id,
     })
     .select('token')
     .single();
 
-  if (error) return erro(`Não foi possível criar o convite: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: criarConvite', error, { acao: 'criar o convite' }));
 
-  await registrar(ator, 'criar_convite', 'convites', null, { rotulo, cargo, usosMax });
+  await registrar(ator, 'criar_convite', 'convites', null, { rotulo, cargo, usosMax, expiraEm });
   revalidatePath('/membros/gestao/usuarios');
   return {
     ok: true,
@@ -343,7 +388,7 @@ export async function revogarConvite(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: revogarConvite', e));
   }
 
   const id = texto(formData, 'id');
@@ -354,7 +399,7 @@ export async function revogarConvite(_estadoAnterior, formData) {
     .update({ revogado: true })
     .eq('id', id);
 
-  if (error) return erro(`Não foi possível revogar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: revogarConvite', error, { acao: 'revogar' }));
 
   await registrar(ator, 'revogar_convite', 'convites', id, null);
   revalidatePath('/membros/gestao/usuarios');
@@ -427,7 +472,7 @@ async function inserirConvitesPessoais(admin, { pessoas, cargo, rotulo, lote, at
     )
     .select('id, token, nome, email');
 
-  if (error) return { erro: `Não foi possível criar os convites: ${error.message}` };
+  if (error) return { erro: registrarErro('gestao: revogarConvite', error, { acao: 'criar os convites' }) };
 
   return { convites: criados, criados: criados.length, ignoradas };
 }
@@ -448,7 +493,7 @@ export async function criarConvidado(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: criarConvidado', e));
   }
 
   const nome = texto(formData, 'nome');
@@ -519,7 +564,7 @@ export async function prepararConvidados(_estadoAnterior, formData) {
   try {
     await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: prepararConvidados', e));
   }
 
   const linhas = lerConvidados(formData.get('planilha'));
@@ -579,7 +624,7 @@ export async function criarConvitesLote(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: criarConvitesLote', e));
   }
 
   const cargo = cargoConvidavel(ator.cargo, texto(formData, 'cargo'));
@@ -687,7 +732,7 @@ export async function marcarConviteEnviado(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: marcarConviteEnviado', e));
   }
 
   const id = texto(formData, 'id');
@@ -698,7 +743,7 @@ export async function marcarConviteEnviado(_estadoAnterior, formData) {
     .update({ enviado_em: new Date().toISOString(), erro_envio: null })
     .eq('id', id);
 
-  if (error) return erro(`Não foi possível marcar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: marcarConviteEnviado', error, { acao: 'marcar' }));
 
   await registrar(ator, 'marcar_convite_enviado', 'convites', id, null);
   revalidatePath('/membros/gestao/usuarios');
@@ -717,7 +762,7 @@ export async function enviarConvite(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: enviarConvite', e));
   }
 
   const id = texto(formData, 'id');
@@ -752,7 +797,7 @@ export async function salvarMaterial(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: salvarMaterial', e));
   }
 
   const titulo = texto(formData, 'titulo');
@@ -790,7 +835,7 @@ export async function salvarMaterial(_estadoAnterior, formData) {
     ? await admin.from('materiais').update(dados).eq('id', id)
     : await admin.from('materiais').insert(dados);
 
-  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: salvarMaterial', error, { acao: 'salvar' }));
 
   await registrar(ator, id ? 'editar_material' : 'criar_material', 'materiais', id, { titulo });
   revalidatePath('/membros/materiais');
@@ -802,7 +847,7 @@ export async function excluirMaterial(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: excluirMaterial', e));
   }
 
   const id = texto(formData, 'id');
@@ -812,7 +857,7 @@ export async function excluirMaterial(_estadoAnterior, formData) {
   const { data: material } = await admin.from('materiais').select('arquivo_path').eq('id', id).single();
 
   const { error } = await admin.from('materiais').delete().eq('id', id);
-  if (error) return erro(`Não foi possível excluir: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: excluirMaterial', error, { acao: 'excluir' }));
 
   // Remove o arquivo do Storage para não deixar órfão ocupando espaço.
   if (material?.arquivo_path) {
@@ -833,7 +878,7 @@ export async function salvarEntrega(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: salvarEntrega', e));
   }
 
   const titulo = texto(formData, 'titulo');
@@ -863,7 +908,7 @@ export async function salvarEntrega(_estadoAnterior, formData) {
     ? await admin.from('entregas').update(dados).eq('id', id)
     : await admin.from('entregas').insert(dados);
 
-  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: salvarEntrega', error, { acao: 'salvar' }));
 
   await registrar(ator, id ? 'editar_entrega' : 'criar_entrega', 'entregas', id, { titulo });
   revalidatePath('/membros/trainee');
@@ -875,14 +920,14 @@ export async function excluirEntrega(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: excluirEntrega', e));
   }
 
   const id = texto(formData, 'id');
   if (!id) return erro('Entrega não informada.');
 
   const { error } = await criarClienteAdmin().from('entregas').delete().eq('id', id);
-  if (error) return erro(`Não foi possível excluir: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: excluirEntrega', error, { acao: 'excluir' }));
 
   await registrar(ator, 'excluir_entrega', 'entregas', id, null);
   revalidatePath('/membros/trainee');
@@ -901,7 +946,7 @@ export async function salvarLiberacaoHandout(_estadoAnterior, formData) {
   try {
     ator = await exigirGestao();
   } catch (e) {
-    return erro(e.message);
+    return erro(registrarErro('gestao: salvarLiberacaoHandout', e));
   }
 
   const slug = texto(formData, 'slug');
@@ -919,7 +964,7 @@ export async function salvarLiberacaoHandout(_estadoAnterior, formData) {
       { onConflict: 'slug' },
     );
 
-  if (error) return erro(`Não foi possível salvar: ${error.message}`);
+  if (error) return erro(registrarErro('gestao: salvarLiberacaoHandout', error, { acao: 'salvar' }));
 
   await registrar(ator, 'liberar_handout', 'handouts', slug, { liberado_em: instante });
   revalidatePath('/membros/trainee');

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import CampoUpload from '@/components/membros/CampoUpload';
 import { atualizarCampo } from '../acoes';
+import { avisarErro } from './Aviso';
 import { InlineSelect, InlineTexto } from './Inline';
 
 // Logos que já estão em /public/assets; também aceita URL colada à mão.
@@ -52,7 +53,7 @@ function Marcar({ projeto, campo, children, confirmar }) {
               campo,
               valor,
             });
-            if (!r?.ok) return alert(r?.erro ?? 'Não foi possível salvar.');
+            if (!r?.ok) return avisarErro(r?.erro);
             router.refresh();
           });
         }}
@@ -62,7 +63,13 @@ function Marcar({ projeto, campo, children, confirmar }) {
   );
 }
 
-/** Troca o PDF do paper no bucket público e grava a URL na mesma ação. */
+/**
+ * Troca o PDF do paper no bucket público e grava a URL na mesma ação.
+ *
+ * O texto de ajuda do campo fala em consequência, não em infraestrutura:
+ * "bucket público" é o nome da coisa do lado do Supabase, e quem está subindo
+ * um PDF precisa saber é que o arquivo fica aberto para qualquer um.
+ */
 function PaperPdf({ projeto }) {
   const router = useRouter();
   const [, iniciar] = useTransition();
@@ -84,7 +91,7 @@ function PaperPdf({ projeto }) {
           router.refresh();
         });
       }}
-      ajuda="Bucket público: qualquer visitante da landing baixa."
+      ajuda="Fica aberto no site: qualquer pessoa que acessar a página do projeto pode baixar."
     />
   );
 }

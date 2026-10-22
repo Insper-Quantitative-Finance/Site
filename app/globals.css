@@ -271,7 +271,12 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
   padding: 28px 26px;
 }
 
-.campo { display: grid; gap: 8px; }
+/* `align-content: start` é o que mantém os campos alinhados quando eles são
+   irmãos num grid de colunas. Sem isto o .campo estica para a altura da linha,
+   e as linhas internas (label/input/ajuda) esticam junto: o campo SEM texto de
+   ajuda ganhava um input mais alto que o campo COM ajuda ao lado — era o
+   "Nome completo" desalinhado em relação ao "E-mail". */
+.campo { display: grid; gap: 8px; align-content: start; }
 .campo > label {
   font-size: 11px;
   letter-spacing: 0.18em;
@@ -298,6 +303,42 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 }
 .campo textarea { min-height: 96px; resize: vertical; }
 .campo .ajuda { font-size: 12px; color: var(--texto-3); line-height: 1.5; }
+
+/* ------------------------------------------- linha de campos que quebra */
+/* Campos lado a lado + botão. No desktop é uma linha; abaixo de 560px vira
+   coluna. Antes isto era um grid de 3 colunas com pisos de 200px e 130px: as
+   três somavam mais de 400px e a página ia a 493px num celular de 375px —
+   o `min(200px, 100%)` não salvava, porque o 100% é a largura do container,
+   não o que sobra depois das outras colunas. */
+.form-linha {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+}
+@media (max-width: 560px) {
+  .form-linha { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+}
+
+/* ------------------------------------------------ tabela que rola no lado */
+/* As tabelas da gestão já rolavam na horizontal, mas sem dizer isso: no
+   celular a coluna de ações (editar, revogar) simplesmente ficava fora da
+   tela, e nada na página sugeria arrastar. Daí a sombra nas bordas.
+
+   O truque é de CSS puro, sem medir nada em JS: as duas camadas `local`
+   acompanham o conteúdo e tapam a sombra quando se chega ao fim daquele lado;
+   as duas `scroll` ficam presas ao container. O efeito é a sombra aparecer só
+   do lado em que ainda há conteúdo escondido — que é exatamente a informação
+   que faltava. A cor das camadas `local` tem de ser a do fundo atrás da
+   tabela, senão elas aparecem como faixa. */
+.tabela-rolagem {
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--carvao) 30%, rgba(10, 11, 13, 0)) left center / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--carvao) 30%, rgba(10, 11, 13, 0)) right center / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) left center / 16px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) right center / 16px 100% no-repeat scroll;
+}
 
 .tabela { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tabela th {
@@ -329,6 +370,19 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; }
 .aviso { padding: 14px 16px; font-size: 14px; line-height: 1.6; border: 1px solid; }
 .aviso--erro { border-color: rgba(214, 26, 26, 0.5); background: rgba(214, 26, 26, 0.08); color: #F2B8B8; }
 .aviso--ok { border-color: rgba(169, 194, 209, 0.5); background: rgba(169, 194, 209, 0.08); color: var(--azul); }
+/* Orientação, não erro: "preencha o e-mail para receber o link" é instrução de
+   como seguir, e em vermelho era lido como "você fez algo errado". Cinza, com
+   a mesma caixa, para continuar visível sem gritar. */
+.aviso--info { border-color: var(--linha-forte); background: rgba(242, 242, 240, 0.04); color: var(--texto-2); }
+
+/* ---------------------------------------------- requisito de senha */
+/* A dica de senha muda de estado em vez de ficar parada: cinza enquanto falta,
+   azul com um "✓" quando cumpre. Um requisito que não reage deixa a pessoa
+   conferindo caractere por caractere para saber se já pode enviar. */
+.requisito { font-size: 12px; line-height: 1.5; color: var(--texto-3); display: flex; align-items: center; gap: 6px; }
+.requisito::before { content: "○"; font-size: 10px; }
+.requisito[data-ok="sim"] { color: var(--azul); }
+.requisito[data-ok="sim"]::before { content: "✓"; }
 
 /* ---------------------------------------------- barra de abas que rola */
 /* A nav de membros esconde a scrollbar (ela ficaria grossa e feia por cima

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { CARGOS, ehGestao } from '@/lib/cargos';
+import { CARGOS, ehGestao, ehPresidencia } from '@/lib/cargos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteAdmin, criarClienteServidor } from '@/lib/supabase/server';
 import { emailConfigurado } from '@/lib/email';
@@ -44,12 +44,19 @@ export default async function PaginaUsuarios() {
         <h1 style={{ fontSize: 38, lineHeight: 1.1, marginBottom: 0 }}>Usuários</h1>
       </div>
 
+      {/* A instrução de configurar o servidor só aparece para a presidência.
+          O resto da gestão é diretor de área: para eles, "configure GMAIL_USER
+          e GMAIL_APP_PASSWORD (veja DEPLOY.md)" é uma frase que nomeia coisas
+          que não existem no mundo deles e que ninguém ali vai mexer. O que
+          todo mundo precisa saber é que convidar continua funcionando. */}
       {!emailConfigurado() && (
         <div className="aviso" style={{ margin: 0, borderColor: 'var(--linha-forte)', color: 'var(--texto-3)' }}>
           O disparo automático está desligado, mas convidar funciona normalmente:{' '}
           <strong>Abrir e-mail</strong> abre o Gmail numa aba nova com a mensagem pronta e já marca o convite como
-          enviado — você só confere e aperta Enviar. Para disparar a turma inteira de uma vez, configure{' '}
-          <code>GMAIL_USER</code> e <code>GMAIL_APP_PASSWORD</code> no servidor (veja <code>DEPLOY.md</code>).
+          enviado — você só confere e aperta Enviar.
+          {ehPresidencia(ator.cargo)
+            ? ' Para disparar a turma inteira de uma vez, é preciso ligar o envio automático nas configurações do servidor; quem cuida do deploy sabe onde.'
+            : ' Para disparar a turma inteira de uma vez, fale com a presidência.'}
         </div>
       )}
 

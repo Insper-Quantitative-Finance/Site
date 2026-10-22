@@ -79,7 +79,7 @@ function FormularioMaterial({ material, aoConcluir }) {
           label="Arquivo"
           valor={arquivo}
           aoEnviar={setArquivo}
-          ajuda="Fica no bucket privado: o download exige login."
+          ajuda="Só membros logados conseguem baixar."
         />
       )}
 
@@ -144,7 +144,7 @@ export default function GerenciarMateriais({ materiais }) {
       )}
 
       {materiais.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="tabela-rolagem">
           <table className="tabela">
             <thead>
               <tr>

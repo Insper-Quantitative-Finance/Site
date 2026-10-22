@@ -4,13 +4,16 @@ import { exigirUsuario } from '@/lib/auth';
 import { ehGestao } from '@/lib/cargos';
 import { acharHandout, formatarLiberacao, partirHandout } from '@/lib/handouts';
 import { baixarHandout, handoutsVisiveis } from '@/lib/handouts-storage';
+import { ESTILO_HANDOUT } from '@/conteudo/handouts/estilo.mjs';
 import ComportamentoHandout from './ComportamentoHandout';
 
 export const dynamic = 'force-dynamic';
 
+/** Slug inexistente cai no notFound() abaixo, e a aba tem de dizer isso. */
 export function generateMetadata({ params }) {
   const handout = acharHandout(params.slug);
-  return { title: handout ? `${handout.titulo} · Handout ${handout.numero} · IQF` : 'Handout · IQF' };
+  if (!handout) return { title: 'Página não encontrada · IQF' };
+  return { title: `${handout.titulo} · Handout ${handout.numero} · IQF` };
 }
 
 export default async function PaginaHandout({ params }) {
@@ -31,7 +34,7 @@ export default async function PaginaHandout({ params }) {
 
   // O handout é escrito pela gestão e guardado em bucket privado com escrita
   // restrita — é conteúdo nosso, não entrada de usuário, e por isso vai direto
-  // na página. O CSS dele é todo escopado em `.handout` (ver _estilo.css), o
+  // na página. O CSS dele é todo escopado em `.handout` (ver estilo.mjs), o
   // que impede o estilo da aula de vazar para o resto da área de membros.
   const partes = partirHandout(await baixarHandout(handout));
 
@@ -65,8 +68,16 @@ export default async function PaginaHandout({ params }) {
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: partes.estilo }} />
-      <div dangerouslySetInnerHTML={{ __html: partes.corpo }} />
+      {/* O estilo vem do repositório (ESTILO_HANDOUT), não do `partes.estilo`
+          que veio junto com o arquivo do bucket. Era essa a razão de os
+          handouts continuarem vazando da tela depois do conserto: o <style>
+          embutido no HTML é uma fotografia do CSS do dia do upload, e corrigir
+          o CSS aqui não mudava nada até alguém remontar e subir cada handout
+          de novo. Agora o corpo vem do bucket e a aparência vem do deploy. */}
+      <style dangerouslySetInnerHTML={{ __html: ESTILO_HANDOUT }} />
+      {/* minWidth: 0 — este div é item do grid de fora, e sem isso a coluna
+          cresce até o min-content do handout. Ver o comentário em .handout. */}
+      <div style={{ minWidth: 0 }} dangerouslySetInnerHTML={{ __html: partes.corpo }} />
       <ComportamentoHandout />
 
       <nav
