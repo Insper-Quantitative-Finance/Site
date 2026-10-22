@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react';
 import { criarProjeto } from './acoes';
 
 /**
- * Abrir projeto pedindo só o título.
+ * Criar projeto pedindo só o título.
  *
  * O resto (briefing, datas, equipe, vitrine) é preenchido inline na página
  * do projeto. Pedir dez campos num formulário antes de a página existir era
@@ -55,7 +55,7 @@ export default function NovoProjeto() {
           }}
         />
         <button className="btn btn--solido btn--pequeno" disabled={pendente || !titulo.trim()} onClick={criar}>
-          {pendente ? 'Criando…' : 'Abrir'}
+          {pendente ? 'Criando…' : 'Criar'}
         </button>
       </div>
       {erro && <div className="aviso aviso--erro">{erro}</div>}

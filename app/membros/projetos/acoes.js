@@ -12,38 +12,30 @@ import {
 } from '@/lib/projetos';
 import { usuarioOuNulo } from '@/lib/auth';
 import { criarClienteAdmin } from '@/lib/supabase/server';
+import { ErroDeRegra, registrarErro } from '@/lib/erros';
 
 const erro = (mensagem) => ({ ok: false, erro: mensagem });
 const sucesso = (extra) => ({ ok: true, ...extra });
 
 /**
- * Erro do Supabase → mensagem que diz o que fazer.
+ * Erro do Supabase → mensagem para a tela.
  *
- * O caso que mais aparece é a migração não ter sido aplicada: o PostgREST
- * devolve "Could not find the 'x' column in the schema cache", que não diz
- * nada a quem está usando a tela. Como todas as tabelas e colunas desta
- * área vêm de um arquivo só, é seguro apontar direto para ele.
+ * A tradução de verdade está em lib/erros.js; aqui sobrou só o que é desta
+ * área. O caso da migração não aplicada (PGRST204, 42P01…) continua sendo
+ * reconhecido lá, mas a frase que ia para a tela — "rode
+ * supabase/migracao-projetos-acompanhamento.sql no SQL Editor" — virou um
+ * aviso genérico: era instrução de manutenção aparecendo para qualquer membro,
+ * e contava um nome de arquivo do repositório. Ela agora sai no log, que é
+ * onde quem vai rodar a migração está olhando.
  */
 function mensagemErro(error, acao = 'salvar') {
   if (!error) return `Não foi possível ${acao}.`;
 
-  const faltando =
-    error.code === 'PGRST204' || // coluna ausente no cache do PostgREST
-    error.code === '42P01' || // tabela não existe
-    error.code === '42703' || // coluna não existe
-    error.code === '42704' || // tipo/enum não existe
-    /schema cache|does not exist/i.test(error.message ?? '');
-
-  if (faltando) {
-    return (
-      'O banco ainda não tem as tabelas do acompanhamento de projetos. ' +
-      'Rode supabase/migracao-projetos-acompanhamento.sql no SQL Editor do Supabase e tente de novo.'
-    );
-  }
-
+  // O slug é escolhido na tela, então vale dizer qual campo repetiu em vez do
+  // "isso já existe" genérico.
   if (error.code === '23505') return 'Já existe um projeto com esse identificador (slug).';
 
-  return `Não foi possível ${acao}: ${error.message}`;
+  return registrarErro(`projetos: ${acao}`, error, { acao });
 }
 
 const limpar = (v) => {
@@ -74,9 +66,9 @@ async function registrar(ator, acao, entidade, entidadeId, detalhes) {
  */
 async function contexto(projetoId, { exigirEquipe = false } = {}) {
   const ator = await usuarioOuNulo();
-  if (!ator) throw new Error('Sessão expirada. Entre de novo.');
-  if (!podeVerProjetos(ator.cargo)) throw new Error('Área restrita a membros efetivados.');
-  if (!projetoId) throw new Error('Projeto não informado.');
+  if (!ator) throw new ErroDeRegra('Sessão expirada. Entre de novo.');
+  if (!podeVerProjetos(ator.cargo)) throw new ErroDeRegra('Área restrita a membros efetivados.');
+  if (!projetoId) throw new ErroDeRegra('Projeto não informado.');
 
   const admin = criarClienteAdmin();
 
@@ -94,13 +86,13 @@ async function contexto(projetoId, { exigirEquipe = false } = {}) {
       .maybeSingle(),
   ]);
 
-  if (!projeto) throw new Error('Projeto não encontrado.');
+  if (!projeto) throw new ErroDeRegra('Projeto não encontrado.');
 
   if (exigirEquipe && !podeGerirEquipe(ator)) {
-    throw new Error('Só a presidência e o diretor de projetos podem fazer isso.');
+    throw new ErroDeRegra('Só a presidência e o diretor de projetos podem fazer isso.');
   }
   if (!exigirEquipe && !podeEditarProjeto(ator, alocacao)) {
-    throw new Error('Você não está alocado neste projeto.');
+    throw new ErroDeRegra('Você não está alocado neste projeto.');
   }
 
   return { ator, admin, projeto, alocacao, comando: ehComandoProjetos(ator.cargo) };
@@ -124,7 +116,7 @@ const proteger = (fn) => async (args) => {
   try {
     return await fn(args);
   } catch (e) {
-    return erro(e?.message ?? 'Não foi possível concluir a ação.');
+    return erro(registrarErro('projetos: acao', e, { acao: 'concluir a ação' }));
   }
 };
 
@@ -226,13 +218,13 @@ function converter(regra, valor) {
     case DATA: {
       const s = limpar(valor);
       if (!s) return null;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('Data inválida.');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new ErroDeRegra('Data inválida.');
       return s;
     }
     case UUID: {
       const s = limpar(valor);
       if (!s) return null;
-      if (!/^[0-9a-f-]{36}$/i.test(s)) throw new Error('Referência inválida.');
+      if (!/^[0-9a-f-]{36}$/i.test(s)) throw new ErroDeRegra('Referência inválida.');
       return s;
     }
     case DATAHORA: {
@@ -241,13 +233,13 @@ function converter(regra, valor) {
       // O input datetime-local manda "2026-05-20T15:30" sem fuso. Interpretar
       // no fuso de quem digitou é o certo: a pessoa marcou 15h onde ela está.
       const d = new Date(s);
-      if (Number.isNaN(d.getTime())) throw new Error('Data e hora inválidas.');
+      if (Number.isNaN(d.getTime())) throw new ErroDeRegra('Data e hora inválidas.');
       return d.toISOString();
     }
     case URL: {
       const s = limpar(valor);
       if (!s) return null;
-      if (!/^https?:\/\//i.test(s)) throw new Error('O link precisa começar com http:// ou https://.');
+      if (!/^https?:\/\//i.test(s)) throw new ErroDeRegra('O link precisa começar com http:// ou https://.');
       return s;
     }
     case LISTA: {
@@ -264,8 +256,8 @@ function converter(regra, valor) {
     }
     default: {
       const s = limpar(valor);
-      if (!s && regra.obrigatorio) throw new Error('Este campo não pode ficar vazio.');
-      if (regra.valida && !regra.valida(s)) throw new Error('Valor inválido.');
+      if (!s && regra.obrigatorio) throw new ErroDeRegra('Este campo não pode ficar vazio.');
+      if (regra.valida && !regra.valida(s)) throw new ErroDeRegra('Valor inválido.');
       return s;
     }
   }

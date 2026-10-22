@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ehGestao, podeVerAreaGeral } from '@/lib/cargos';
+import { podeVerProjetos } from '@/lib/projetos';
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteServidor } from '@/lib/supabase/server';
 
@@ -18,6 +19,7 @@ export default async function PainelMembros() {
   const usuario = await exigirUsuario();
   const gestao = ehGestao(usuario.cargo);
   const areaGeral = podeVerAreaGeral(usuario.cargo);
+  const verProjetos = podeVerProjetos(usuario.cargo);
 
   // Os números da liga são para quem já foi efetivado. Para o trainee, nem
   // consultamos: além de não aparecer, evita três queries por visita.
@@ -70,6 +72,13 @@ export default async function PainelMembros() {
           titulo="Entregas e handouts"
           texto="As datas do programa de trainee e o material de apoio de cada encontro."
         />
+        {verProjetos && (
+          <Atalho
+            href="/membros/projetos"
+            titulo="Projetos"
+            texto="Tarefas, metas, reuniões e equipe de cada projeto. O que aparece na landing se edita na aba “Vitrine do site”, dentro do projeto."
+          />
+        )}
         {areaGeral && (
           <>
             <Atalho
@@ -95,11 +104,6 @@ export default async function PainelMembros() {
               href="/membros/gestao/usuarios"
               titulo="Usuários"
               texto="Cadastre novos membros, ajuste cargos e desative quem saiu da liga."
-            />
-            <Atalho
-              href="/membros/gestao/projetos"
-              titulo="Projetos do site"
-              texto="Controle o que aparece na seção de projetos da landing e o que fica no “carregar mais”."
             />
           </>
         )}

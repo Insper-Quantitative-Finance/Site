@@ -1,0 +1,67 @@
+-- =====================================================================
+-- Fecha a leitura direta do bucket `materiais`.
+--
+-- O QUE ESTAVA ABERTO
+--
+-- A policy `materiais_read` do schema.sql era:
+--
+--   for select to authenticated using (bucket_id = 'materiais')
+--
+-- Ou seja: QUALQUER usuário logado podia ler QUALQUER objeto do bucket,
+-- inclusive `handouts/*`. E a chave publicável do Supabase está no JavaScript
+-- do site por desenho — é o que o navegador usa para fazer login. Então um
+-- trainee com a própria sessão conseguia, direto pela API do Storage e sem
+-- passar pelo site:
+--
+--   * listar `handouts/` e baixar o HTML de uma aula que ainda não abriu,
+--     furando a data de liberação que a gestão marca (lib/handouts.js,
+--     estaLiberado() e podeAbrirHandout());
+--   * baixar qualquer material sem passar por /api/materiais/[id]/download.
+--
+-- A trava da data de liberação existia só no código da página. O RLS, que é a
+-- camada que vale quando alguém fala com o Supabase direto, deixava passar.
+--
+-- POR QUE DÁ PARA FECHAR SEM QUEBRAR NADA
+--
+-- Nenhuma leitura deste bucket acontece no navegador com a sessão do usuário.
+-- As duas que existem usam a chave de servidor, que ignora RLS:
+--
+--   * lib/handouts-storage.js → baixarHandout(), com criarClienteAdmin();
+--   * app/api/materiais/[id]/download/route.js → createSignedUrl() com o
+--     cliente admin, depois de conferir a sessão. A URL assinada vale 60s e
+--     não depende de policy.
+--
+-- O que o navegador faz no bucket é SUBIR arquivo (components/membros/
+-- CampoUpload.jsx), e isso é `insert` — coberto por `materiais_write`, que
+-- continua como está.
+--
+-- Rodar no SQL Editor do Supabase. Idempotente.
+-- =====================================================================
+
+-- A leitura passa a ser só da gestão. Não é necessária para o site funcionar
+-- (todo caminho de leitura usa a chave de servidor); fica para quem administra
+-- conseguir conferir o bucket pelo painel com a própria conta.
+drop policy if exists materiais_read on storage.objects;
+create policy materiais_read on storage.objects
+  for select to authenticated
+  using (bucket_id = 'materiais' and public.is_gestao(auth.uid()));
+
+-- =====================================================================
+-- Conferência
+--
+-- Depois de rodar, isto deve devolver uma linha só para `materiais_read`, com
+-- `qual` mencionando is_gestao:
+--
+--   select policyname, cmd, qual
+--     from pg_policies
+--    where schemaname = 'storage' and tablename = 'objects'
+--      and policyname like 'materiais%';
+--
+-- E o teste de verdade: entre no site com uma conta de trainee, abra o console
+-- e rode
+--
+--   await supabase.storage.from('materiais').list('handouts')
+--
+-- O retorno tem de ser uma lista vazia. Antes desta migração, vinha o nome dos
+-- arquivos de todas as aulas.
+-- =====================================================================

@@ -209,13 +209,13 @@ function Individual({ cargo, origem, emailPronto, aoMarcar, aoFechar }) {
             type="email"
             required
             autoComplete="off"
-            placeholder={`nome.sobrenome@${DOMINIO_PERMITIDO}`}
+            placeholder={`seunome@${DOMINIO_PERMITIDO}`}
           />
           <div className="ajuda">Só e-mail @{DOMINIO_PERMITIDO}.</div>
         </div>
       </div>
 
-      {/* Sem RESEND_API_KEY no servidor a caixa só criaria uma falha de envio
+      {/* Sem o envio automático ligado, a caixa só criaria uma falha de envio
           garantida. Nesse caso o link sai na tela e o botão "Abrir e-mail
           pronto" cuida do resto. */}
       {emailPronto ? (
@@ -324,7 +324,9 @@ function Importador({ cargo, aoTrocarCargo, aoFechar }) {
             rows={8}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder={'João Silva\tjoao.silva@al.insper.edu.br\nMaria Souza\tmaria.souza@al.insper.edu.br'}
+            // O Insper não usa nome.sobrenome@: o login é o primeiro nome
+            // colado às iniciais, às vezes com um número.
+            placeholder={'João Silva\tjoaosf2@al.insper.edu.br\nMaria Souza\tmariasc@al.insper.edu.br'}
             style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13 }}
           />
         </div>
@@ -360,7 +362,7 @@ function Importador({ cargo, aoTrocarCargo, aoFechar }) {
 
           <Feedback estado={criacao} />
 
-          <div style={{ overflowX: 'auto', maxHeight: 340, overflowY: 'auto' }}>
+          <div className="tabela-rolagem" style={{ maxHeight: 340, overflowY: 'auto' }}>
             <table className="tabela">
               <thead>
                 <tr>
@@ -580,7 +582,7 @@ export default function Convidados({ convidados, emailPronto }) {
             </div>
           )}
 
-          <div style={{ overflowX: 'auto' }}>
+          <div className="tabela-rolagem">
             <table className="tabela">
               <thead>
                 <tr>

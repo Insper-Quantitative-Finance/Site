@@ -12,6 +12,7 @@ import {
   urgencia,
 } from '@/lib/projetos';
 import { atualizarCampo, excluirProjeto } from '../acoes';
+import { avisarErro } from './Aviso';
 import { InlineData, InlineSelect, InlineTexto } from './Inline';
 
 function Dado({ rotulo, children }) {
@@ -39,7 +40,7 @@ function Perigo({ projeto }) {
         campo: 'arquivado',
         valor,
       });
-      if (!r?.ok) return alert(r?.erro ?? 'Não foi possível arquivar.');
+      if (!r?.ok) return avisarErro(r?.erro);
       router.refresh();
     });
   };
@@ -48,7 +49,7 @@ function Perigo({ projeto }) {
     if (!confirm(`Excluir "${projeto.titulo}" definitivamente? Tarefas, metas, marcos e reuniões vão com ele.`)) return;
     iniciar(async () => {
       const r = await excluirProjeto({ projetoId: projeto.id });
-      if (!r?.ok) return alert(r?.erro ?? 'Não foi possível excluir.');
+      if (!r?.ok) return avisarErro(r?.erro);
       router.push('/membros/projetos');
     });
   };

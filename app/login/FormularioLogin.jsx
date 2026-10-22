@@ -3,42 +3,31 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro } from '@/lib/erros';
 
 /**
- * "Failed to fetch" é o que o navegador diz quando nem chegou ao Supabase —
- * DNS errado, projeto pausado ou offline. Sem tradução, parece senha errada.
+ * A tradução mora em lib/erros.js, não aqui. Antes esta tela tinha a sua
+ * própria: ela acertava os casos comuns, mas o fallback era
+ * `'Não foi possível entrar: ' + msg` — o que punha frase do Supabase em inglês
+ * na tela — e o caso de rede imprimia a URL do projeto e o nome das env vars.
  */
-function traduzirErro(error) {
-  const msg = error?.message ?? '';
-
-  if (/failed to fetch|network|load failed/i.test(msg)) {
-    const host = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '(não configurado)';
-    return (
-      `Não foi possível falar com o servidor de autenticação (${host}). ` +
-      'Verifique se NEXT_PUBLIC_SUPABASE_URL aponta para o projeto certo, se o projeto ' +
-      'do Supabase não está pausado e se você está online. Lembre: essa variável é lida ' +
-      'no build — mudá-la exige rodar o build de novo.'
-    );
-  }
-  if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
-  if (/email not confirmed/i.test(msg)) return 'Este e-mail ainda não foi confirmado.';
-  if (/rate limit|too many/i.test(msg)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
-
-  return `Não foi possível entrar: ${msg}`;
-}
-
 export default function FormularioLogin({ destino }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState(null);
   const [aviso, setAviso] = useState(null);
+  // Orientação é um terceiro estado, separado de erro e de sucesso: "preencha
+  // o e-mail para receber o link" não é falha de ninguém, e em vermelho era
+  // lido como se a pessoa tivesse feito algo errado.
+  const [orientacao, setOrientacao] = useState(null);
   const [enviando, setEnviando] = useState(false);
 
   async function entrar(e) {
     e.preventDefault();
     setErro(null);
     setAviso(null);
+    setOrientacao(null);
     setEnviando(true);
 
     let error;
@@ -48,14 +37,15 @@ export default function FormularioLogin({ destino }) {
         password: senha,
       }));
     } catch (e) {
-      // criarClienteNavegador() lança quando o build saiu sem as env vars.
-      setErro(e.message);
+      // criarClienteNavegador() lança quando o build saiu sem as env vars —
+      // indistinguível, para quem usa, de servidor fora do ar.
+      setErro(registrarErro('login: criar client', e, { acao: 'entrar' }));
       setEnviando(false);
       return;
     }
 
     if (error) {
-      setErro(traduzirErro(error));
+      setErro(registrarErro('login: signInWithPassword', error, { acao: 'entrar' }));
       setEnviando(false);
       return;
     }
@@ -67,12 +57,16 @@ export default function FormularioLogin({ destino }) {
 
   async function recuperarSenha() {
     if (!email.trim()) {
-      // O aviso é renderizado acima dos campos, então "campo acima" apontava
-      // para o lugar errado.
-      setErro('Preencha o campo de e-mail para receber o link de redefinição.');
+      // Sem referência a posição ("campo acima"/"abaixo"): este bloco é
+      // renderizado no topo do formulário, então qualquer direção que ele
+      // desse estaria errada para metade dos casos. O campo é nomeado.
+      setErro(null);
+      setAviso(null);
+      setOrientacao('Escreva seu e-mail no campo "E-mail" e toque de novo em "Esqueci minha senha".');
       return;
     }
     setErro(null);
+    setOrientacao(null);
     setEnviando(true);
 
     try {
@@ -80,11 +74,11 @@ export default function FormularioLogin({ destino }) {
         redirectTo: `${window.location.origin}/membros/conta/redefinir`,
       });
       setEnviando(false);
-      if (error) setErro(traduzirErro(error));
+      if (error) setErro(registrarErro('login: resetPasswordForEmail', error, { acao: 'enviar o link' }));
       else setAviso('Se esse e-mail estiver cadastrado, o link de redefinição chegou na caixa de entrada.');
     } catch (e) {
       setEnviando(false);
-      setErro(e.message);
+      setErro(registrarErro('login: reset', e, { acao: 'enviar o link' }));
     }
   }
 
@@ -93,6 +87,7 @@ export default function FormularioLogin({ destino }) {
     // falhar o default seria GET — e a senha iria parar na URL.
     <form onSubmit={entrar} method="post" style={{ display: 'grid', gap: 20 }}>
       {erro && <div className="aviso aviso--erro">{erro}</div>}
+      {orientacao && <div className="aviso aviso--info">{orientacao}</div>}
       {aviso && <div className="aviso aviso--ok">{aviso}</div>}
 
       <div className="campo">

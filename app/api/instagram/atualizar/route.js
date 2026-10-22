@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buscarPostsInstagram, renovarTokenInstagram } from '@/lib/instagram';
+import { registrarErro } from '@/lib/erros';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,9 @@ export async function GET(request) {
         aviso: 'Copie o token completo do painel da Meta para INSTAGRAM_ACCESS_TOKEN na Vercel.',
       };
     } catch (e) {
-      token = { erro: e.message };
+      // Rota de gestão, mas a mensagem da Graph API pode citar o token e o
+      // nome da env var — vai para o log, não para a resposta.
+      token = { erro: registrarErro('instagram: renovar token', e, { acao: 'renovar o token' }) };
     }
   }
 

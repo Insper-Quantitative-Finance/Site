@@ -3,15 +3,28 @@
  * Idempotente: se o e-mail já existe no auth, atualiza o perfil em vez de falhar.
  *
  *   node --env-file=.env.local scripts/criar-diretoria.mjs
+ *
+ * Sem senha. Cada conta nasce sem senha utilizável e o script dispara o e-mail
+ * de definição de senha — o mesmo fluxo do "esqueci minha senha".
+ *
+ * Antes havia uma constante `SENHA_INICIAL` com um valor fixo aqui, e este era
+ * o pior lugar possível para uma senha: o repositório é PÚBLICO (exigência do
+ * plano Hobby da Vercel, ver DEPLOY.md). A senha das duas contas de maior
+ * privilégio do sistema ficava legível para qualquer pessoa na internet.
+ *
+ * Apagar a linha não resolve sozinho: ela continua no histórico do git. Se o
+ * script chegou a ser rodado com aquele valor, as senhas das duas contas
+ * precisam ser trocadas de fato.
  */
 import { createClient } from '@supabase/supabase-js';
 
-const SENHA_INICIAL = 'IQF@2026';
-
 const DIRETORIA = [
-  { nome: 'Fernando Nakatsubo', email: 'feranandocn@al.insper.edu.br', cargo: 'presidente' },
+  { nome: 'Fernando Nakatsubo', email: 'fernandocn@al.insper.edu.br', cargo: 'presidente' },
   { nome: 'Jose Salas', email: 'joselsm3@al.insper.edu.br', cargo: 'vice_presidente' },
 ];
+
+// Para onde o link do e-mail aponta. Em produção, defina NEXT_PUBLIC_SITE_URL.
+const ORIGEM = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const chave = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -46,9 +59,10 @@ for (const pessoa of DIRETORIA) {
     if (usuario) {
       console.log(`• ${pessoa.nome}: já existia no auth, reaproveitando.`);
     } else {
+      // Sem `password`: até a pessoa abrir o link do e-mail, não existe senha
+      // que sirva para entrar nesta conta.
       const { data, error } = await admin.auth.admin.createUser({
         email,
-        password: SENHA_INICIAL,
         email_confirm: true, // cadastro interno; não faz sentido exigir confirmação
         user_metadata: { nome: pessoa.nome },
       });
@@ -65,6 +79,17 @@ for (const pessoa of DIRETORIA) {
     if (erroPerfil) throw new Error(erroPerfil.message);
 
     console.log(`  perfil OK — ${pessoa.cargo}`);
+
+    // O link para a pessoa definir a própria senha.
+    const { error: erroLink } = await admin.auth.resetPasswordForEmail(email, {
+      redirectTo: `${ORIGEM}/membros/conta/redefinir`,
+    });
+    if (erroLink) {
+      console.warn(`  aviso: o e-mail de definição de senha não saiu (${erroLink.message}).`);
+      console.warn('  Use "Esqueci minha senha" no /login para receber o link.');
+    } else {
+      console.log(`  e-mail de definição de senha enviado para ${email}`);
+    }
   } catch (e) {
     falhou = true;
     console.error(`• ${pessoa.nome}: FALHOU — ${e.message}`);
@@ -72,7 +97,7 @@ for (const pessoa of DIRETORIA) {
 }
 
 console.log('');
-console.log(`Senha inicial de ambos: ${SENHA_INICIAL}`);
-console.log('Entrem em /login e troquem em "Minha conta" — depois disso ninguém mais consegue vê-la.');
+console.log('Cada um recebe por e-mail um link para definir a própria senha.');
+console.log('Se o link não chegar, use "Esqueci minha senha" em /login.');
 
 process.exit(falhou ? 1 : 0);

@@ -2,6 +2,7 @@
 
 import { MOTIVO_DOMINIO, MOTIVOS, cargoConvite, emailPermitido, situacaoConvite } from '@/lib/convites';
 import { criarClienteAdmin } from '@/lib/supabase/server';
+import { registrarErro, tipoDeErro } from '@/lib/erros';
 
 const erro = (mensagem) => ({ ok: false, erro: mensagem });
 
@@ -67,7 +68,7 @@ export async function aceitarConvite(_estadoAnterior, formData) {
     p_token: token,
   });
 
-  if (erroConsumo) return erro(`Não foi possível validar o convite: ${erroConsumo.message}`);
+  if (erroConsumo) return erro(registrarErro('convite: consumir', erroConsumo, { acao: 'validar o convite' }));
   // Sem linha de volta: alguém consumiu a última vaga entre a leitura e agora.
   if (!consumido) return erro(MOTIVOS.esgotado);
 
@@ -82,10 +83,13 @@ export async function aceitarConvite(_estadoAnterior, formData) {
 
   if (erroAuth) {
     await devolver();
+    // O caso "e-mail já cadastrado" ganha um complemento que lib/erros.js não
+    // tem como saber: aqui existe um login para onde mandar a pessoa.
+    const motivo = registrarErro('convite: criar conta', erroAuth, { acao: 'criar a conta' });
     return erro(
-      /already registered|already been registered/i.test(erroAuth.message)
+      tipoDeErro(erroAuth) === 'ja-existe'
         ? 'Já existe uma conta com esse e-mail. Entre pelo login — se esqueceu a senha, use “Esqueci minha senha”.'
-        : `Não foi possível criar a conta: ${erroAuth.message}`,
+        : motivo,
     );
   }
 
@@ -105,7 +109,7 @@ export async function aceitarConvite(_estadoAnterior, formData) {
     // Conta de auth sem perfil viraria login sem identidade: desfaz tudo.
     await admin.auth.admin.deleteUser(criado.user.id);
     await devolver();
-    return erro(`Não foi possível criar o perfil: ${erroPerfil.message}`);
+    return erro(registrarErro('convite: criar perfil', erroPerfil, { acao: 'criar a conta' }));
   }
 
   try {

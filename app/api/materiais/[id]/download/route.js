@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { usuarioOuNulo } from '@/lib/auth';
 import { criarClienteAdmin } from '@/lib/supabase/server';
+import { registrarErro } from '@/lib/erros';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,10 @@ export async function GET(_request, { params }) {
     .createSignedUrl(material.arquivo_path, 60, { download: material.arquivo_nome || true });
 
   if (error) {
-    return NextResponse.json({ erro: `Não foi possível gerar o link: ${error.message}` }, { status: 500 });
+    // O corpo da resposta é visível no navegador, então vale a mesma regra das
+    // telas: erro do Storage (que nomeia bucket e caminho) fica no log.
+    const mensagem = registrarErro('download de material', error, { acao: 'gerar o link' });
+    return NextResponse.json({ erro: mensagem }, { status: 500 });
   }
 
   return NextResponse.redirect(data.signedUrl);

@@ -42,16 +42,8 @@ export default function Equipe({ projetoId, equipe, candidatos, usuarioId, podeG
     <div style={{ display: 'grid', gap: 20 }}>
       {podeGerir ? (
         <div className="painel" style={{ display: 'grid', gap: 14 }}>
-          <div
-            style={{
-              display: 'grid',
-              gap: 12,
-              // min(…, 100%) para a linha poder encolher abaixo do piso no
-              // celular — sem isso os 330px fixos estouram a tela.
-              gridTemplateColumns: 'minmax(min(200px, 100%), 2fr) minmax(min(130px, 100%), 1fr) auto',
-              alignItems: 'end',
-            }}
-          >
+          {/* .form-linha vira uma coluna só abaixo de 560px. Ver globals.css. */}
+          <div className="form-linha">
             <div className="campo">
               <label htmlFor="eq-quem">Alocar quem</label>
               <select id="eq-quem" value={escolhido} onChange={(e) => setEscolhido(e.target.value)}>

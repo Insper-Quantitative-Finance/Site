@@ -3,6 +3,7 @@ import { podeEditarProjeto, podeEditarVitrine, podeGerirEquipe, podeVerProjetos 
 import { exigirUsuario } from '@/lib/auth';
 import { criarClienteServidor } from '@/lib/supabase/server';
 import Abas from './Abas';
+import AvisoDeErro from './Aviso';
 import Cabecalho from './Cabecalho';
 import Equipe from './Equipe';
 import Metas from './Metas';
@@ -12,10 +13,20 @@ import Vitrine from './Vitrine';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * O título da aba.
+ *
+ * O caso do slug que não existe tem de dizer "página não encontrada", e não
+ * "Projeto · IQF": o generateMetadata roda ANTES do notFound() da página e o
+ * título que ele devolve é o que vale, mesmo quando o Next acaba renderizando
+ * o not-found. Era por isso que esta era a única rota do site cujo 404 abria
+ * com o nome errado na aba — o `metadata` do app/not-found.jsx nunca ganhava.
+ */
 export async function generateMetadata({ params }) {
   const supabase = criarClienteServidor();
   const { data } = await supabase.from('projetos').select('titulo').eq('slug', params.slug).maybeSingle();
-  return { title: data ? `${data.titulo} · IQF` : 'Projeto · IQF' };
+  if (!data) return { title: 'Página não encontrada · IQF' };
+  return { title: `${data.titulo} · IQF` };
 }
 
 export default async function PaginaProjeto({ params }) {
@@ -146,6 +157,9 @@ export default async function PaginaProjeto({ params }) {
       {/* Projeto recém-aberto não tem equipe nem tarefa: cair no quadro vazio
           esconderia o próximo passo, que é alocar quem vai trabalhar nele. */}
       <Abas abas={abas} inicial={membros.length === 0 ? 'equipe' : 'tarefas'} />
+      {/* Uma caixa de aviso para a página toda: é onde aparecem os erros das
+          ações que antes chamavam alert(). Ver Aviso.jsx. */}
+      <AvisoDeErro />
     </div>
   );
 }

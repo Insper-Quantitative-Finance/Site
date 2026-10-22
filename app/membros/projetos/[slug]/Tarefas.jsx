@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { COLUNAS_TAREFA, COR_URGENCIA, formatarData, rotuloPrazo, urgencia } from '@/lib/projetos';
 import { reordenarColuna } from '../acoes';
+import { avisarErro } from './Aviso';
 import { BotaoExcluir, InlineData, InlineSelect, InlineTexto, QuickAdd } from './Inline';
 
 /**
@@ -163,7 +164,7 @@ export default function Tarefas({ projetoId, tarefas, equipe, usuarioId, podeEdi
       const r = await reordenarColuna({ projetoId, status, ids });
       // Em erro ou sucesso o refresh traz o estado real do banco; o rollback
       // vem de graça pelo useEffect acima.
-      if (!r?.ok) alert(r?.erro ?? 'Não foi possível mover a tarefa.');
+      if (!r?.ok) avisarErro(r?.erro);
       router.refresh();
     });
   };

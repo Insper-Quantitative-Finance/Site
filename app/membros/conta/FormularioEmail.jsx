@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro } from '@/lib/erros';
 
 /**
  * Troca do próprio e-mail de acesso.
@@ -31,12 +32,11 @@ export default function FormularioEmail({ emailAtual }) {
     const { error } = await criarClienteNavegador().auth.updateUser({ email: novo });
 
     setSalvando(false);
+    // "já existe conta com esse e-mail" é um dos casos de lib/erros.js, junto
+    // de e-mail inválido e limite de envio — que eram o que mais aparecia aqui
+    // em inglês.
     if (error) {
-      setEstado({
-        erro: /already/i.test(error.message)
-          ? 'Já existe uma conta com esse e-mail.'
-          : `Não foi possível trocar: ${error.message}`,
-      });
+      setEstado({ erro: registrarErro('conta: trocar e-mail', error, { acao: 'trocar o e-mail' }) });
       return;
     }
 

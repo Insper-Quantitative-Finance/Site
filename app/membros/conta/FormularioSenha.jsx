@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro, tipoDeErro } from '@/lib/erros';
+import { RequisitoSenha, SENHA_MINIMA } from '@/components/membros/Formulario';
 
 /**
  * Troca de senha do próprio usuário. Roda no navegador, com a sessão dele.
@@ -24,7 +26,7 @@ export default function FormularioSenha({ aoTrocar, emailAtual }) {
     setEstado(null);
 
     if (exigirAtual && !atual) return setEstado({ erro: 'Escreva sua senha atual.' });
-    if (senha.length < 8) return setEstado({ erro: 'A senha precisa ter pelo menos 8 caracteres.' });
+    if (senha.length < SENHA_MINIMA) return setEstado({ erro: `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres.` });
     if (senha !== confirmacao) return setEstado({ erro: 'As duas senhas não são iguais.' });
     if (exigirAtual && senha === atual) {
       return setEstado({ erro: 'A nova senha precisa ser diferente da atual.' });
@@ -43,10 +45,13 @@ export default function FormularioSenha({ aoTrocar, emailAtual }) {
       });
       if (erroAtual) {
         setSalvando(false);
+        // Aqui o campo é um só, então "e-mail ou senha incorretos" (a frase
+        // padrão do caso) apontaria para um campo que esta tela não tem.
+        const motivo = registrarErro('conta: conferir senha atual', erroAtual, {
+          acao: 'conferir a senha atual',
+        });
         return setEstado({
-          erro: /invalid login credentials/i.test(erroAtual.message)
-            ? 'Senha atual incorreta.'
-            : `Não foi possível conferir a senha atual: ${erroAtual.message}`,
+          erro: tipoDeErro(erroAtual) === 'credenciais' ? 'Senha atual incorreta.' : motivo,
         });
       }
     }
@@ -54,7 +59,9 @@ export default function FormularioSenha({ aoTrocar, emailAtual }) {
     const { error } = await supabase.auth.updateUser({ password: senha });
     setSalvando(false);
 
-    if (error) return setEstado({ erro: `Não foi possível trocar: ${error.message}` });
+    // Era aqui que saíam as regras de senha do Supabase em inglês ("password
+    // should be at least…"); lib/erros.js tem a versão em português.
+    if (error) return setEstado({ erro: registrarErro('conta: trocar senha', error, { acao: 'trocar a senha' }) });
 
     setAtual('');
     setSenha('');
@@ -88,12 +95,12 @@ export default function FormularioSenha({ aoTrocar, emailAtual }) {
           id="senha-nova"
           type="password"
           autoComplete="new-password"
-          minLength={8}
+          minLength={SENHA_MINIMA}
           required
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
         />
-        <div className="ajuda">Mínimo de 8 caracteres.</div>
+        <RequisitoSenha senha={senha} />
       </div>
 
       <div className="campo">
@@ -106,6 +113,11 @@ export default function FormularioSenha({ aoTrocar, emailAtual }) {
           value={confirmacao}
           onChange={(e) => setConfirmacao(e.target.value)}
         />
+        {confirmacao && (
+          <div className="requisito" data-ok={confirmacao === senha ? 'sim' : 'nao'} aria-live="polite">
+            {confirmacao === senha ? 'As duas senhas conferem.' : 'As duas senhas ainda não conferem.'}
+          </div>
+        )}
       </div>
 
       <button className="btn btn--vazado" type="submit" disabled={salvando} style={{ justifySelf: 'start' }}>

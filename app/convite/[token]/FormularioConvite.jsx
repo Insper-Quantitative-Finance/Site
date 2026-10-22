@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useFormState } from 'react-dom';
-import { BotaoEnviar, Feedback } from '@/components/membros/Formulario';
+import { BotaoEnviar, Feedback, RequisitoSenha, SENHA_MINIMA } from '@/components/membros/Formulario';
 import { DOMINIO_PERMITIDO } from '@/lib/convites';
 import { criarClienteNavegador } from '@/lib/supabase/client';
+import { registrarErro } from '@/lib/erros';
 import { aceitarConvite } from '@/app/convite/acoes';
 
 export default function FormularioConvite({ token, nome, email }) {
@@ -13,6 +14,9 @@ export default function FormularioConvite({ token, nome, email }) {
   const [estado, acao] = useFormState(aceitarConvite, null);
   const [entrando, setEntrando] = useState(false);
   const [erroLogin, setErroLogin] = useState(null);
+  // Controlada só para o requisito abaixo do campo poder reagir ao que falta.
+  const [senha, setSenha] = useState('');
+  const [senha2, setSenha2] = useState('');
 
   // Guardados para o login automático: a action roda no servidor e não pode
   // devolver a senha de volta ao cliente.
@@ -34,7 +38,8 @@ export default function FormularioConvite({ token, nome, email }) {
         router.refresh();
       } catch (e) {
         // A conta existe de qualquer forma; só o login automático falhou.
-        setErroLogin(`Sua conta foi criada, mas o acesso automático falhou (${e.message}). Entre pelo login.`);
+        registrarErro('convite: login automatico', e);
+        setErroLogin('Sua conta foi criada, mas o acesso automático falhou. Entre pelo login.');
         setEntrando(false);
       }
     })();
@@ -96,13 +101,38 @@ export default function FormularioConvite({ token, nome, email }) {
 
       <div className="campo">
         <label htmlFor="c-senha">Senha</label>
-        <input id="c-senha" name="senha" type="password" minLength={8} required autoComplete="new-password" />
-        <div className="ajuda">Mínimo de 8 caracteres.</div>
+        <input
+          id="c-senha"
+          name="senha"
+          type="password"
+          minLength={SENHA_MINIMA}
+          required
+          autoComplete="new-password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+        />
+        <RequisitoSenha senha={senha} />
       </div>
 
       <div className="campo">
         <label htmlFor="c-senha2">Repita a senha</label>
-        <input id="c-senha2" name="senha_confirmacao" type="password" minLength={8} required autoComplete="new-password" />
+        <input
+          id="c-senha2"
+          name="senha_confirmacao"
+          type="password"
+          minLength={SENHA_MINIMA}
+          required
+          autoComplete="new-password"
+          value={senha2}
+          onChange={(e) => setSenha2(e.target.value)}
+        />
+        {/* Só avisa depois que a pessoa começou a repetir: um "não conferem"
+            no primeiro caractere é ruído, não ajuda. */}
+        {senha2 && (
+          <div className="requisito" data-ok={senha2 === senha ? 'sim' : 'nao'} aria-live="polite">
+            {senha2 === senha ? 'As duas senhas conferem.' : 'As duas senhas ainda não conferem.'}
+          </div>
+        )}
       </div>
 
       <div className="campo">
